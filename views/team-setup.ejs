@@ -64,10 +64,12 @@
             <label>リーダーを選択 (1人クリック)</label>
             <div class="user-pool" id="leader-pool">
               <% allUsers.forEach(u => { %>
-                <div class="user-chip" data-id="<%= u.id %>" onclick="selectLeader(this)">
+                <% const isAssigned = assignedUserIds.includes(u.id); %>
+                <div class="user-chip <%= isAssigned ? 'disabled' : '' %>" data-id="<%= u.id %>" <%= isAssigned ? '' : 'onclick="selectLeader(this)"' %>>
                   <%- avatarHtml(u, 'sm') %>
                   <%= u.name %>
                   <% if (u.role === 'leader') { %><span style="font-size:10px;">👑</span><% } %>
+                  <% if (isAssigned) { %><span style="font-size:10px;color:var(--gray-400);">配属済</span><% } %>
                 </div>
               <% }) %>
             </div>
@@ -78,9 +80,11 @@
             <label>メンバーを選択 (複数クリック)</label>
             <div class="user-pool" id="member-pool">
               <% allUsers.forEach(u => { %>
-                <div class="user-chip" data-id="<%= u.id %>" onclick="toggleMember(this)">
+                <% const isAssigned = assignedUserIds.includes(u.id); %>
+                <div class="user-chip <%= isAssigned ? 'disabled' : '' %>" data-id="<%= u.id %>" <%= isAssigned ? '' : 'onclick="toggleMember(this)"' %>>
                   <%- avatarHtml(u, 'sm') %>
                   <%= u.name %>
+                  <% if (isAssigned) { %><span style="font-size:10px;color:var(--gray-400);">配属済</span><% } %>
                 </div>
               <% }) %>
             </div>

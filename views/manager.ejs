@@ -11,6 +11,11 @@
     <h1>imajina Task Manager</h1>
     <div class="header-right">
       <span class="phase-badge"><%= phase.label %></span>
+      <% if (phase.remainMinutes > 0) { %>
+        <span style="font-size:12px;color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;">
+          残り<%= Math.floor(phase.remainMinutes / 60) %>時間<%= phase.remainMinutes % 60 %>分
+        </span>
+      <% } %>
       <a href="/team-setup?date=<%= selectedDate %>" class="btn-logout" style="background:rgba(255,255,255,0.25);">チーム編成</a>
       <div class="header-user">
         <label class="avatar-upload">
@@ -41,7 +46,7 @@
       <% alerts.forEach(a => { %>
         <div class="alert-item <%= a.type %>">
           <span class="alert-icon">
-            <%= a.type === 'delay' ? '🚨' : a.type === 'warning' ? '⚠️' : '❓' %>
+            <%= a.type === 'delay' ? '🚨' : a.type === 'warning' ? '⚠️' : a.type === 'time' ? '⏰' : '❓' %>
           </span>
           <span><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
         </div>
@@ -91,13 +96,28 @@
       </div>
     <% } %>
 
-    <% teams.forEach(td => { %>
+    <% teams.forEach(td => {
+      const teamTotalTasks = td.memberTasks.reduce((s, mt) => s + mt.tasks.length, 0);
+      const teamCompletedTasks = td.memberTasks.reduce((s, mt) => s + mt.tasks.filter(t => t.status === 'completed').length, 0);
+      const teamProgress = teamTotalTasks > 0 ? Math.round(teamCompletedTasks / teamTotalTasks * 100) : 0;
+      const teamAvgProgress = td.memberTasks.length > 0 ? Math.round(td.memberTasks.reduce((s, mt) => s + mt.progress, 0) / td.memberTasks.length) : 0;
+    %>
       <div class="team-card">
         <div class="team-card-header">
-          <h3><%= td.team.name %></h3>
+          <h3><%= td.team.name %>
+            <span style="font-size:14px;font-weight:700;margin-left:12px;color:<%= teamAvgProgress >= 80 ? '#22c55e' : teamAvgProgress >= 40 ? '#f59e0b' : '#ef4444' %>;">
+              📊 <%= teamAvgProgress %>%
+            </span>
+          </h3>
           <div style="display:flex;gap:12px;align-items:center;">
             <span class="team-leader-badge">👑 <%= td.leader ? td.leader.name : '未設定' %></span>
             <span style="font-size:13px;opacity:0.8;"><%= td.memberTasks.length %>名</span>
+            <span style="font-size:13px;opacity:0.8;">完了 <%= teamCompletedTasks %>/<%= teamTotalTasks %></span>
+          </div>
+        </div>
+        <div style="padding:0 16px;">
+          <div class="progress-bar-wrap" style="height:6px;margin:0;">
+            <div class="progress-bar-fill <%= teamAvgProgress < 30 ? 'low' : teamAvgProgress < 70 ? 'mid' : 'high' %>" style="width:<%= teamAvgProgress %>%"></div>
           </div>
         </div>
         <div style="padding:16px;">

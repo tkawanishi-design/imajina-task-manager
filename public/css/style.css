@@ -472,6 +472,13 @@ textarea { resize: vertical; min-height: 80px; }
 .user-chip:hover { background: var(--primary-light); }
 .user-chip.selected { background: var(--primary); color: white; border-color: var(--primary-dark); }
 .user-chip.leader { background: var(--warning); color: white; border-color: #d97706; }
+.user-chip.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: var(--gray-100);
+  border-color: var(--gray-200);
+  pointer-events: none;
+}
 
 /* ===== MODAL ===== */
 .modal-overlay {

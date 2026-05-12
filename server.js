@@ -48,15 +48,25 @@ function today() {
 }
 
 function currentPhase() {
-  const h = new Date().getHours();
-  const m = new Date().getMinutes();
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
   const t = h * 60 + m;
-  if (t < 600) return { label: '業務開始前', next: '10:00 タスク登録', phase: 0 };
-  if (t < 780) return { label: 'タスク実行中', next: '13:00 中間報告', phase: 1 };
-  if (t < 900) return { label: '中間報告', next: '15:00 進捗確認', phase: 2 };
-  if (t < 1080) return { label: '午後タスク実行中', next: '18:00 最終確認', phase: 3 };
-  if (t < 1200) return { label: '最終追い込み', next: '20:00 退勤', phase: 4 };
-  return { label: '業務終了', next: '', phase: 5 };
+  const workStart = 480;  // 8:00
+  const workEnd = 1200;   // 20:00
+  const remainMinutes = Math.max(0, workEnd - t);
+  const currentTime = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+
+  let label, next, phase;
+  if (t < workStart) { label = '出社前'; next = '08:00 業務開始'; phase = 0; }
+  else if (t < 600) { label = '朝タスク整理'; next = '10:00 タスク登録締切'; phase = 1; }
+  else if (t < 780) { label = '午前タスク実行中'; next = '13:00 中間報告'; phase = 2; }
+  else if (t < 900) { label = '午後タスク実行中'; next = '15:00 進捗確認'; phase = 3; }
+  else if (t < 1080) { label = '午後後半'; next = '18:00 最終確認'; phase = 4; }
+  else if (t < workEnd) { label = '最終追い込み'; next = '20:00 退勤'; phase = 5; }
+  else { label = '業務終了'; next = ''; phase = 6; }
+
+  return { label, next, phase, remainMinutes, currentTime };
 }
 
 function generateSuggestion(title) {
@@ -181,20 +191,32 @@ app.get('/manager', requireManager, async (req, res) => {
       teamData.push({ team, leader, members, memberTasks });
     }
 
+    const phase = currentPhase();
     const alerts = [];
     for (const td of teamData) {
       for (const mt of td.memberTasks) {
         if (mt.hasDelay) alerts.push({ type: 'delay', message: `${mt.user.name}さんのタスクに遅れが出ています`, userId: mt.user.id, teamName: td.team.name });
         if (mt.hasQuestions) alerts.push({ type: 'question', message: `${mt.user.name}さんからの質問があります`, userId: mt.user.id, teamName: td.team.name });
+
+        // Time-based alerts: remaining estimated time vs remaining work time
+        const remainEst = mt.tasks.filter(t => t.status !== 'completed').reduce((s, t) => {
+          const remaining = Math.max(0, t.estimated_minutes - t.actual_minutes);
+          return s + remaining;
+        }, 0);
+
+        if (phase.remainMinutes > 0 && remainEst > phase.remainMinutes && mt.tasks.length > 0) {
+          alerts.push({ type: 'time', message: `${mt.user.name}さん：残タスク推定${remainEst}分 > 残り業務時間${phase.remainMinutes}分 ⏰ 終わらない可能性`, userId: mt.user.id, teamName: td.team.name });
+        }
+
         for (const task of mt.tasks) {
-          if (task.progress < 30 && currentPhase().phase >= 3) {
+          if (task.progress < 30 && phase.phase >= 3) {
             alerts.push({ type: 'warning', message: `${mt.user.name}「${task.title}」進捗${task.progress}%（15時以降）`, userId: mt.user.id, teamName: td.team.name });
           }
         }
       }
     }
 
-    res.render('manager', { user: req.session.user, teams: teamData, allUsers, alerts, phase: currentPhase(), selectedDate: d, today: today() });
+    res.render('manager', { user: req.session.user, teams: teamData, allUsers, alerts, phase, selectedDate: d, today: today() });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
@@ -205,11 +227,13 @@ app.get('/team-setup', requireManager, async (req, res) => {
     const allUsers = await db.getNonManagerUsers();
     const existingTeams = await db.getTeamsByDate(d);
     const teamsWithMembers = [];
+    const assignedUserIds = new Set();
     for (const t of existingTeams) {
       const members = await db.getTeamMembers(t.id);
+      members.forEach(m => assignedUserIds.add(m.id));
       teamsWithMembers.push({ ...t, members });
     }
-    res.render('team-setup', { user: req.session.user, allUsers, teams: teamsWithMembers, selectedDate: d });
+    res.render('team-setup', { user: req.session.user, allUsers, teams: teamsWithMembers, selectedDate: d, assignedUserIds: Array.from(assignedUserIds) });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
