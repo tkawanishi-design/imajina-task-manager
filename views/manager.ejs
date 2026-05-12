@@ -46,15 +46,19 @@
 
     <!-- Alerts -->
     <% if (alerts.length > 0) { %>
-    <div class="alert-panel">
-      <h3 style="font-size:15px;margin-bottom:12px;color:var(--gray-700);">🔔 アラート (<%= alerts.length %>件)</h3>
+    <div class="alert-panel" id="alert-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <h3 style="font-size:15px;color:var(--gray-700);">🔔 アラート (<span id="alert-count"><%= alerts.length %></span>件)</h3>
+        <button class="btn btn-sm btn-outline" onclick="dismissAllAlerts()" style="font-size:11px;">すべて確認済みにする</button>
+      </div>
       <% alerts.forEach((a, ai) => { %>
-        <div class="alert-item <%= a.type %>" style="cursor:pointer;flex-wrap:wrap;" onclick="toggleAlertReply(<%= ai %>)">
+        <div class="alert-item <%= a.type %>" id="alert-item-<%= ai %>" data-alert-key="<%= a.type %>-<%= a.userId %>-<%= selectedDate %>" style="cursor:pointer;flex-wrap:wrap;" onclick="toggleAlertReply(<%= ai %>)">
           <span class="alert-icon">
             <%= a.type === 'delay' ? '🚨' : a.type === 'warning' ? '⚠️' : a.type === 'time-danger' ? '🔴' : a.type === 'time-warn' ? '🟡' : '❓' %>
           </span>
           <span style="flex:1;"><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
-          <span style="font-size:12px;opacity:0.6;margin-left:auto;">💬 返信</span>
+          <span style="font-size:12px;opacity:0.6;margin-left:8px;">💬 返信</span>
+          <button class="alert-dismiss-btn" onclick="event.stopPropagation();dismissAlert(<%= ai %>)" title="確認済み">✕</button>
           <div class="alert-reply" id="alert-reply-<%= ai %>" style="display:none;width:100%;margin-top:8px;" onclick="event.stopPropagation()">
             <div style="display:flex;gap:8px;align-items:center;">
               <input type="text" class="alert-reply-input" id="alert-input-<%= ai %>" placeholder="<%= a.userName %>さんにコメント..." style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--gray-300);font-size:13px;">
@@ -142,7 +146,7 @@
           <% td.memberTasks.forEach(mt => { %>
             <div class="member-card <%= mt.hasDelay ? 'has-delay' : '' %>">
               <div class="member-card-header" onclick="this.nextElementSibling.classList.toggle('open')">
-                <div style="display:flex;align-items:center;">
+                <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
                   <div class="member-name-with-avatar">
                     <%- avatarHtml(mt.user, 'sm') %>
                     <span class="member-name">
@@ -150,16 +154,20 @@
                       <% if (mt.user.id === td.team.leader_id) { %><span style="font-size:12px;">👑</span><% } %>
                     </span>
                   </div>
-                  <% if (mt.hasDelay) { %><span style="color:var(--danger);font-size:12px;margin-left:8px;">⚠ 遅延あり</span><% } %>
-                  <% if (mt.hasQuestions) { %><span style="color:var(--primary);font-size:12px;margin-left:8px;">❓ 質問あり</span><% } %>
-                </div>
-                <div class="member-stats">
-                  <span>タスク: <%= mt.tasks.length %></span>
-                  <span>見積: <%= mt.totalEst %>分</span>
-                  <span>実績: <%= mt.totalActual %>分</span>
-                  <span style="font-weight:700;color:<%= mt.progress >= 80 ? 'var(--success)' : mt.progress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
+                  <div class="member-progress-inline">
+                    <div class="member-progress-fill <%= mt.progress < 30 ? 'low' : mt.progress < 70 ? 'mid' : 'high' %>" style="width:<%= mt.progress %>%"></div>
+                  </div>
+                  <span style="font-weight:700;font-size:15px;min-width:42px;text-align:right;color:<%= mt.progress >= 80 ? 'var(--success)' : mt.progress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
                     <%= mt.progress %>%
                   </span>
+                  <% if (mt.hasDelay) { %><span style="color:var(--danger);font-size:12px;white-space:nowrap;">⚠遅延</span><% } %>
+                  <% if (mt.hasQuestions) { %><span style="color:var(--primary);font-size:12px;white-space:nowrap;">❓質問</span><% } %>
+                </div>
+                <div class="member-stats">
+                  <span><%= mt.tasks.length %>タスク</span>
+                  <span>見積<%= mt.totalEst %>分</span>
+                  <span>実績<%= mt.totalActual %>分</span>
+                  <span style="font-size:12px;color:var(--gray-400);">▼</span>
                 </div>
               </div>
               <div class="member-card-body">
@@ -314,6 +322,61 @@
         renderComments(d.comments, 'mgr-comments-list-' + taskId);
       });
     }
+    // === Alert dismiss ===
+    function getDismissedAlerts() {
+      try { return JSON.parse(localStorage.getItem('dismissedAlerts') || '{}'); } catch(e) { return {}; }
+    }
+    function dismissAlert(idx) {
+      const el = document.getElementById('alert-item-' + idx);
+      if (!el) return;
+      const key = el.dataset.alertKey;
+      const dismissed = getDismissedAlerts();
+      dismissed[key] = Date.now();
+      localStorage.setItem('dismissedAlerts', JSON.stringify(dismissed));
+      el.style.transition = 'opacity 0.3s, max-height 0.3s, padding 0.3s, margin 0.3s';
+      el.style.opacity = '0';
+      el.style.maxHeight = '0';
+      el.style.padding = '0 16px';
+      el.style.marginBottom = '0';
+      el.style.overflow = 'hidden';
+      setTimeout(() => { el.remove(); updateAlertCount(); }, 300);
+    }
+    function dismissAllAlerts() {
+      const dismissed = getDismissedAlerts();
+      document.querySelectorAll('.alert-item').forEach(el => {
+        dismissed[el.dataset.alertKey] = Date.now();
+        el.style.transition = 'opacity 0.3s';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+      });
+      localStorage.setItem('dismissedAlerts', JSON.stringify(dismissed));
+      setTimeout(() => {
+        const panel = document.getElementById('alert-panel');
+        if (panel) panel.style.display = 'none';
+      }, 350);
+    }
+    function updateAlertCount() {
+      const remaining = document.querySelectorAll('.alert-item').length;
+      const countEl = document.getElementById('alert-count');
+      if (countEl) countEl.textContent = remaining;
+      if (remaining === 0) {
+        const panel = document.getElementById('alert-panel');
+        if (panel) panel.style.display = 'none';
+      }
+    }
+    // On load: hide previously dismissed alerts
+    (function() {
+      const dismissed = getDismissedAlerts();
+      // Clean old entries (older than 24h)
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      Object.keys(dismissed).forEach(k => { if (dismissed[k] < cutoff) delete dismissed[k]; });
+      localStorage.setItem('dismissedAlerts', JSON.stringify(dismissed));
+      document.querySelectorAll('.alert-item').forEach(el => {
+        if (dismissed[el.dataset.alertKey]) el.remove();
+      });
+      updateAlertCount();
+    })();
+
     function toggleAlertReply(idx) {
       const el = document.getElementById('alert-reply-' + idx);
       const isOpen = el.style.display !== 'none';

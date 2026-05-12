@@ -169,7 +169,21 @@ app.get('/member', requireLogin, async (req, res) => {
     const overallProgress = tasks.length > 0 ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
     let teamMembers = myTeam ? await db.getTeamMembers(myTeam.id) : [];
     const reports = await db.getReports(user.id, d);
-    res.render('member', { user, tasks, myTeam, teamMembers, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, reports });
+
+    // Leader: load team members' tasks (read-only view)
+    let teamMemberTasks = [];
+    if ((user.role === 'leader' || user.role === 'manager') && myTeam) {
+      for (const m of teamMembers) {
+        if (m.id === user.id) continue; // skip self
+        const mTasks = await db.getTasksByUser(m.id, d);
+        const mTotalEst = mTasks.reduce((s, t) => s + t.estimated_minutes, 0);
+        const mTotalActual = mTasks.reduce((s, t) => s + t.actual_minutes, 0);
+        const mProgress = mTasks.length > 0 ? Math.round(mTasks.reduce((s, t) => s + t.progress, 0) / mTasks.length) : 0;
+        teamMemberTasks.push({ user: m, tasks: mTasks, totalEst: mTotalEst, totalActual: mTotalActual, progress: mProgress });
+      }
+    }
+
+    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, reports });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 

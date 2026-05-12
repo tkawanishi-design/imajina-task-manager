@@ -197,6 +197,69 @@
         <% } %>
       </div>
     </div>
+
+    <!-- Leader: Team Member Tasks (read-only) -->
+    <% if (teamMemberTasks && teamMemberTasks.length > 0) { %>
+    <div style="margin-top:24px;">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:16px;color:var(--gray-800);">👥 チームメンバーのタスク状況</h2>
+      <% teamMemberTasks.forEach(mt => { %>
+        <div class="member-card" style="margin-bottom:16px;">
+          <div class="member-card-header" onclick="this.nextElementSibling.classList.toggle('open')">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="member-name-with-avatar">
+                <%- avatarHtml(mt.user, 'sm') %>
+                <span class="member-name"><%= mt.user.name %></span>
+              </div>
+              <div class="leader-progress-bar-inline">
+                <div class="leader-progress-fill <%= mt.progress < 30 ? 'low' : mt.progress < 70 ? 'mid' : 'high' %>" style="width:<%= mt.progress %>%"></div>
+              </div>
+              <span style="font-weight:700;font-size:14px;color:<%= mt.progress >= 80 ? 'var(--success)' : mt.progress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
+                <%= mt.progress %>%
+              </span>
+            </div>
+            <div class="member-stats">
+              <span>タスク: <%= mt.tasks.length %></span>
+              <span>見積: <%= mt.totalEst %>分</span>
+              <span>実績: <%= mt.totalActual %>分</span>
+              <span style="font-size:12px;color:var(--gray-400);">▼ 詳細</span>
+            </div>
+          </div>
+          <div class="member-card-body">
+            <% if (mt.tasks.length === 0) { %>
+              <p style="color:var(--gray-400);font-size:13px;text-align:center;padding:16px;">タスク未登録</p>
+            <% } %>
+            <% mt.tasks.forEach((task, i) => { %>
+              <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %>" style="cursor:default;">
+                <div class="task-top">
+                  <span class="task-title"><%= i + 1 %>. <%= task.title %></span>
+                  <span class="task-category"><%= task.category %></span>
+                </div>
+                <div class="task-meta">
+                  <span>見積: <%= task.estimated_minutes %>分</span>
+                  <span>実績: <%= task.actual_minutes %>分</span>
+                  <span>
+                    <% if (task.status === 'completed') { %>
+                      <span style="color:var(--success);font-weight:600;">✓ 完了</span>
+                    <% } else if (task.status === 'blocked') { %>
+                      <span style="color:var(--danger);font-weight:600;">🚫 ブロック</span>
+                    <% } else if (task.status === 'in_progress') { %>
+                      <span style="color:var(--primary);font-weight:600;">▶ 作業中</span>
+                    <% } else { %>
+                      <span style="color:var(--gray-400);">○ 未着手</span>
+                    <% } %>
+                  </span>
+                </div>
+                <div class="progress-bar-wrap" style="height:8px;">
+                  <div class="progress-bar-fill <%= task.progress < 30 ? 'low' : task.progress < 70 ? 'mid' : 'high' %>" style="width:<%= task.progress %>%"></div>
+                </div>
+                <div class="progress-label" style="font-size:12px;color:<%= task.progress < 30 ? 'var(--danger)' : task.progress < 70 ? 'var(--warning)' : 'var(--success)' %>"><%= task.progress %>%</div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+    <% } %>
   </div>
 
   <!-- Duplicate Modal -->

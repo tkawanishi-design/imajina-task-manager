@@ -635,6 +635,61 @@ textarea { resize: vertical; min-height: 80px; }
   gap: 8px;
 }
 
+/* ===== INLINE PROGRESS BAR (Manager member header) ===== */
+.member-progress-inline {
+  flex: 1;
+  min-width: 80px;
+  max-width: 200px;
+  height: 10px;
+  background: var(--gray-200);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.member-progress-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+.member-progress-fill.low { background: var(--danger); }
+.member-progress-fill.mid { background: var(--warning); }
+.member-progress-fill.high { background: var(--success); }
+
+/* ===== LEADER PROGRESS BAR (Leader member view) ===== */
+.leader-progress-bar-inline {
+  width: 120px;
+  height: 8px;
+  background: var(--gray-200);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.leader-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.leader-progress-fill.low { background: var(--danger); }
+.leader-progress-fill.mid { background: var(--warning); }
+.leader-progress-fill.high { background: var(--success); }
+
+/* ===== ALERT DISMISS ===== */
+.alert-dismiss-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--gray-400);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  transition: all 0.2s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.alert-dismiss-btn:hover {
+  background: rgba(0,0,0,0.1);
+  color: var(--gray-700);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
   .grid-3 { grid-template-columns: 1fr 1fr; }
