@@ -65,6 +65,7 @@
     <% } %>
 
     <!-- Stats -->
+    <% const completedCount = tasks.filter(t => t.status === 'completed').length; %>
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-value"><%= tasks.length %></div>
@@ -81,6 +82,19 @@
       <div class="stat-card <%= totalActual > totalEst ? 'danger' : '' %>">
         <div class="stat-value"><%= totalActual %></div>
         <div class="stat-label">実績合計 (分)</div>
+      </div>
+    </div>
+
+    <!-- Overall Progress Bar -->
+    <div class="member-overall-progress">
+      <div class="member-overall-header">
+        <span>今日の進捗</span>
+        <span style="font-weight:700;color:<%= overallProgress >= 80 ? 'var(--success)' : overallProgress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
+          <%= overallProgress %>% <span style="font-weight:400;font-size:13px;color:var(--gray-500);">（完了 <%= completedCount %>/<%= tasks.length %>）</span>
+        </span>
+      </div>
+      <div class="progress-bar-wrap" style="height:16px;border-radius:8px;">
+        <div class="progress-bar-fill <%= overallProgress < 30 ? 'low' : overallProgress < 70 ? 'mid' : 'high' %>" style="width:<%= overallProgress %>%;border-radius:8px;"></div>
       </div>
     </div>
 

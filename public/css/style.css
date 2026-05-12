@@ -635,6 +635,24 @@ textarea { resize: vertical; min-height: 80px; }
   gap: 8px;
 }
 
+/* ===== MEMBER OVERALL PROGRESS ===== */
+.member-overall-progress {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+.member-overall-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
 /* ===== INLINE PROGRESS BAR (Manager member header) ===== */
 .member-progress-inline {
   flex: 1;
