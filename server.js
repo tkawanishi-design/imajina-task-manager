@@ -203,27 +203,29 @@ app.get('/manager', requireManager, async (req, res) => {
     const alerts = [];
     for (const td of teamData) {
       for (const mt of td.memberTasks) {
-        if (mt.hasDelay) alerts.push({ type: 'delay', message: `${mt.user.name}さんのタスクに遅れが出ています`, userId: mt.user.id, teamName: td.team.name });
-        if (mt.hasQuestions) alerts.push({ type: 'question', message: `${mt.user.name}さんからの質問があります`, userId: mt.user.id, teamName: td.team.name });
+        // 最初の未完了タスクID（メンバー全体アラート用）
+        const firstActiveTask = mt.tasks.find(t => t.status !== 'completed');
+        const firstTaskId = firstActiveTask ? firstActiveTask.id : (mt.tasks[0] ? mt.tasks[0].id : null);
 
-        // Time-based alerts: remaining estimated time vs remaining work time
+        if (mt.hasDelay) alerts.push({ type: 'delay', message: `${mt.user.name}さんのタスクに遅れが出ています`, userId: mt.user.id, userName: mt.user.name, teamName: td.team.name, taskId: firstTaskId });
+        if (mt.hasQuestions) alerts.push({ type: 'question', message: `${mt.user.name}さんからの質問があります`, userId: mt.user.id, userName: mt.user.name, teamName: td.team.name, taskId: firstTaskId });
+
+        // Time-based alerts
         const remainEst = mt.tasks.filter(t => t.status !== 'completed').reduce((s, t) => {
           const remaining = Math.max(0, t.estimated_minutes - t.actual_minutes);
           return s + remaining;
         }, 0);
 
-        // 18時定時までに終わらない → 黄色警告
         if (phase.remainToDeadline > 0 && remainEst > phase.remainToDeadline && mt.tasks.length > 0) {
-          alerts.push({ type: 'time-warn', message: `${mt.user.name}さん：残タスク推定${remainEst}分 ＞ 18時まで${phase.remainToDeadline}分（定時内に終わらない可能性）`, userId: mt.user.id, teamName: td.team.name });
+          alerts.push({ type: 'time-warn', message: `${mt.user.name}さん：残タスク推定${remainEst}分 ＞ 18時まで${phase.remainToDeadline}分（定時内に終わらない可能性）`, userId: mt.user.id, userName: mt.user.name, teamName: td.team.name, taskId: firstTaskId });
         }
-        // 20時最終退勤までに終わらない → 赤アラート
         if (phase.remainToFinal > 0 && remainEst > phase.remainToFinal && mt.tasks.length > 0) {
-          alerts.push({ type: 'time-danger', message: `${mt.user.name}さん：残タスク推定${remainEst}分 ＞ 20時まで${phase.remainToFinal}分（最終退勤でも終わらない！）`, userId: mt.user.id, teamName: td.team.name });
+          alerts.push({ type: 'time-danger', message: `${mt.user.name}さん：残タスク推定${remainEst}分 ＞ 20時まで${phase.remainToFinal}分（最終退勤でも終わらない！）`, userId: mt.user.id, userName: mt.user.name, teamName: td.team.name, taskId: firstTaskId });
         }
 
         for (const task of mt.tasks) {
           if (task.progress < 30 && phase.phase >= 3) {
-            alerts.push({ type: 'warning', message: `${mt.user.name}「${task.title}」進捗${task.progress}%（15時以降）`, userId: mt.user.id, teamName: td.team.name });
+            alerts.push({ type: 'warning', message: `${mt.user.name}「${task.title}」進捗${task.progress}%（15時以降）`, userId: mt.user.id, userName: mt.user.name, teamName: td.team.name, taskId: task.id });
           }
         }
       }

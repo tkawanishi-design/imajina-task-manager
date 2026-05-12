@@ -48,12 +48,25 @@
     <% if (alerts.length > 0) { %>
     <div class="alert-panel">
       <h3 style="font-size:15px;margin-bottom:12px;color:var(--gray-700);">🔔 アラート (<%= alerts.length %>件)</h3>
-      <% alerts.forEach(a => { %>
-        <div class="alert-item <%= a.type %>">
+      <% alerts.forEach((a, ai) => { %>
+        <div class="alert-item <%= a.type %>" style="cursor:pointer;flex-wrap:wrap;" onclick="toggleAlertReply(<%= ai %>)">
           <span class="alert-icon">
             <%= a.type === 'delay' ? '🚨' : a.type === 'warning' ? '⚠️' : a.type === 'time-danger' ? '🔴' : a.type === 'time-warn' ? '🟡' : '❓' %>
           </span>
-          <span><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
+          <span style="flex:1;"><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
+          <span style="font-size:12px;opacity:0.6;margin-left:auto;">💬 返信</span>
+          <div class="alert-reply" id="alert-reply-<%= ai %>" style="display:none;width:100%;margin-top:8px;" onclick="event.stopPropagation()">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" class="alert-reply-input" id="alert-input-<%= ai %>" placeholder="<%= a.userName %>さんにコメント..." style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--gray-300);font-size:13px;">
+              <button class="btn btn-sm btn-primary" onclick="sendAlertComment(<%= ai %>, <%= a.taskId %>, '<%= a.userName %>')">送信</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '早めに進めてください！')">早めに進めて</button>
+              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '優先的に対応をお願いします')">優先対応して</button>
+              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '今日は外して明日に回してOKです')">明日に回してOK</button>
+              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '困ってたら相談してね')">相談してね</button>
+            </div>
+          </div>
         </div>
       <% }) %>
     </div>
@@ -299,6 +312,41 @@
       }).then(r => r.json()).then(d => {
         input.value = '';
         renderComments(d.comments, 'mgr-comments-list-' + taskId);
+      });
+    }
+    function toggleAlertReply(idx) {
+      const el = document.getElementById('alert-reply-' + idx);
+      const isOpen = el.style.display !== 'none';
+      // Close all others
+      document.querySelectorAll('.alert-reply').forEach(r => r.style.display = 'none');
+      if (!isOpen) {
+        el.style.display = 'block';
+        document.getElementById('alert-input-' + idx).focus();
+      }
+    }
+    function quickFill(idx, text) {
+      document.getElementById('alert-input-' + idx).value = text;
+    }
+    function sendAlertComment(idx, taskId, userName) {
+      const input = document.getElementById('alert-input-' + idx);
+      const msg = input.value.trim();
+      if (!msg) return;
+      if (!taskId) { alert('コメント先のタスクがありません'); return; }
+      fetch('/api/tasks/' + taskId + '/comments', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ message: '📢 ' + msg, is_question: false })
+      }).then(r => r.json()).then(d => {
+        if (d.ok) {
+          input.value = '';
+          document.getElementById('alert-reply-' + idx).style.display = 'none';
+          // Show success feedback
+          const alertEl = document.getElementById('alert-reply-' + idx).parentElement;
+          const badge = document.createElement('span');
+          badge.style.cssText = 'background:#22c55e;color:white;padding:2px 8px;border-radius:8px;font-size:11px;margin-left:8px;';
+          badge.textContent = '✓ ' + userName + 'さんに送信済み';
+          alertEl.querySelector('span:nth-child(2)').appendChild(badge);
+        }
       });
     }
     function uploadAvatar(input, userId) {
