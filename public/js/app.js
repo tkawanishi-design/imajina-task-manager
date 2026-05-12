@@ -1,14 +1,20 @@
 let pendingTask = null;
 
+function getViewDate() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('date') || '';
+}
+
 function addTask() {
   const title = document.getElementById('new-task-title').value.trim();
   const estimated = parseInt(document.getElementById('new-task-time').value) || 0;
   if (!title) return;
+  const viewDate = getViewDate();
 
   fetch('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, estimated_minutes: estimated })
+    body: JSON.stringify({ title, estimated_minutes: estimated, date: viewDate || undefined })
   }).then(r => r.json()).then(data => {
     if (data.duplicates && data.duplicates.length > 0) {
       pendingTask = data.task;

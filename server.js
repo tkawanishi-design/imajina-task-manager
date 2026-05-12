@@ -180,7 +180,7 @@ app.get('/manual', (req, res) => { res.render('manual'); });
 // --- Member page ---
 app.get('/member', requireLogin, async (req, res) => {
   try {
-    const d = today();
+    const d = req.query.date || today();
     const user = req.session.user;
     const myTeam = await db.getTeamForUser(user.id, d);
     const tasks = await db.getTasksByUser(user.id, d);
