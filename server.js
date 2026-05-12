@@ -42,31 +42,39 @@ function requireManager(req, res, next) {
   next();
 }
 
+// JST helper: always use Japan Standard Time (UTC+9)
+function getJST() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+  return jst;
+}
+
 function today() {
-  const d = new Date();
+  const d = getJST();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
 function currentPhase() {
-  const now = new Date();
+  const now = getJST();
   const h = now.getHours();
   const m = now.getMinutes();
   const t = h * 60 + m;
-  const workStart = 480;  // 8:00
-  const workEnd = 1200;   // 20:00
-  const remainMinutes = Math.max(0, workEnd - t);
+  const deadline = 1080;   // 18:00 定時
+  const finalEnd = 1200;   // 20:00 最終退勤
+  const remainToDeadline = Math.max(0, deadline - t);   // 18時まで
+  const remainToFinal = Math.max(0, finalEnd - t);      // 20時まで
   const currentTime = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
 
   let label, next, phase;
-  if (t < workStart) { label = '出社前'; next = '08:00 業務開始'; phase = 0; }
+  if (t < 480) { label = '出社前'; next = '08:00 業務開始'; phase = 0; }
   else if (t < 600) { label = '朝タスク整理'; next = '10:00 タスク登録締切'; phase = 1; }
   else if (t < 780) { label = '午前タスク実行中'; next = '13:00 中間報告'; phase = 2; }
   else if (t < 900) { label = '午後タスク実行中'; next = '15:00 進捗確認'; phase = 3; }
-  else if (t < 1080) { label = '午後後半'; next = '18:00 最終確認'; phase = 4; }
-  else if (t < workEnd) { label = '最終追い込み'; next = '20:00 退勤'; phase = 5; }
+  else if (t < deadline) { label = '午後後半'; next = '18:00 定時'; phase = 4; }
+  else if (t < finalEnd) { label = '残業中'; next = '20:00 最終退勤'; phase = 5; }
   else { label = '業務終了'; next = ''; phase = 6; }
 
-  return { label, next, phase, remainMinutes, currentTime };
+  return { label, next, phase, remainToDeadline, remainToFinal, currentTime };
 }
 
 function generateSuggestion(title) {
@@ -204,8 +212,13 @@ app.get('/manager', requireManager, async (req, res) => {
           return s + remaining;
         }, 0);
 
-        if (phase.remainMinutes > 0 && remainEst > phase.remainMinutes && mt.tasks.length > 0) {
-          alerts.push({ type: 'time', message: `${mt.user.name}さん：残タスク推定${remainEst}分 > 残り業務時間${phase.remainMinutes}分 ⏰ 終わらない可能性`, userId: mt.user.id, teamName: td.team.name });
+        // 18時定時までに終わらない → 黄色警告
+        if (phase.remainToDeadline > 0 && remainEst > phase.remainToDeadline && mt.tasks.length > 0) {
+          alerts.push({ type: 'time-warn', message: `${mt.user.name}さん：残タスク推定${remainEst}分 ＞ 18時まで${phase.remainToDeadline}分（定時内に終わらない可能性）`, userId: mt.user.id, teamName: td.team.name });
+        }
+        // 20時最終退勤までに終わらない → 赤アラート
+        if (phase.remainToFinal > 0 && remainEst > phase.remainToFinal && mt.tasks.length > 0) {
+          alerts.push({ type: 'time-danger', message: `${mt.user.name}さん：残タスク推定${remainEst}分 ＞ 20時まで${phase.remainToFinal}分（最終退勤でも終わらない！）`, userId: mt.user.id, teamName: td.team.name });
         }
 
         for (const task of mt.tasks) {

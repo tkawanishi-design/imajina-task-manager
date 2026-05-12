@@ -11,12 +11,16 @@
     <h1>imajina Task Manager</h1>
     <div class="header-right">
       <span class="phase-badge"><%= phase.label %></span>
-      <% if (phase.remainMinutes > 0) { %>
-        <span style="font-size:12px;color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;">
-          残り<%= Math.floor(phase.remainMinutes / 60) %>h<%= phase.remainMinutes % 60 %>m
+      <% if (phase.remainToDeadline > 0) { %>
+        <span style="font-size:11px;color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;line-height:1.4;">
+          18時まで <strong><%= Math.floor(phase.remainToDeadline / 60) %>h<%= phase.remainToDeadline % 60 %>m</strong>
+          ｜20時まで <strong><%= Math.floor(phase.remainToFinal / 60) %>h<%= phase.remainToFinal % 60 %>m</strong>
+        </span>
+      <% } else if (phase.remainToFinal > 0) { %>
+        <span style="font-size:11px;color:#fca5a5;background:rgba(255,0,0,0.2);padding:4px 10px;border-radius:12px;font-weight:700;">
+          🔴 残業中｜20時まで <strong><%= Math.floor(phase.remainToFinal / 60) %>h<%= phase.remainToFinal % 60 %>m</strong>
         </span>
       <% } %>
-      <% if (phase.next) { %><span class="user-name" style="font-size:12px;">次: <%= phase.next %></span><% } %>
       <div class="header-user">
         <label class="avatar-upload">
           <%- avatarHtml(user, 'sm') %>
@@ -33,16 +37,28 @@
     <!-- Time Alert -->
     <%
       const remainEst = tasks.filter(t => t.status !== 'completed').reduce((s, t) => s + Math.max(0, t.estimated_minutes - t.actual_minutes), 0);
-      const showTimeAlert = phase.remainMinutes > 0 && remainEst > phase.remainMinutes && tasks.length > 0;
+      const overFinal = phase.remainToFinal > 0 && remainEst > phase.remainToFinal && tasks.length > 0;
+      const overDeadline = phase.remainToDeadline > 0 && remainEst > phase.remainToDeadline && tasks.length > 0;
     %>
-    <% if (showTimeAlert) { %>
-      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
-        <span style="font-size:24px;">⏰</span>
+    <% if (overFinal) { %>
+      <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:12px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:28px;">🔴</span>
         <div>
-          <div style="font-weight:700;color:#dc2626;font-size:15px;">このままでは定時内に終わらない可能性があります</div>
+          <div style="font-weight:700;color:#dc2626;font-size:16px;">20時の最終退勤でも終わりません！</div>
           <div style="font-size:13px;color:#7f1d1d;margin-top:4px;">
-            残りタスク推定: <strong><%= remainEst %>分</strong> ／ 残り業務時間: <strong><%= phase.remainMinutes %>分</strong>
-            （超過: <%= remainEst - phase.remainMinutes %>分）
+            残りタスク推定: <strong><%= remainEst %>分</strong> ／ 20時まで: <strong><%= phase.remainToFinal %>分</strong>
+            （超過: <%= remainEst - phase.remainToFinal %>分）→ 優先順位の見直しやヘルプを検討してください
+          </div>
+        </div>
+      </div>
+    <% } else if (overDeadline) { %>
+      <div style="background:#fefce8;border:2px solid #eab308;border-radius:12px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:28px;">🟡</span>
+        <div>
+          <div style="font-weight:700;color:#854d0e;font-size:16px;">18時の定時内には終わらない可能性があります</div>
+          <div style="font-size:13px;color:#854d0e;margin-top:4px;">
+            残りタスク推定: <strong><%= remainEst %>分</strong> ／ 18時まで: <strong><%= phase.remainToDeadline %>分</strong>
+            （超過: <%= remainEst - phase.remainToDeadline %>分）
           </div>
         </div>
       </div>
