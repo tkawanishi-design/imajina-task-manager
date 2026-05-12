@@ -183,6 +183,36 @@ app.get('/member', requireLogin, async (req, res) => {
     const d = req.query.date || today();
     const user = req.session.user;
     const myTeam = await db.getTeamForUser(user.id, d);
+
+    // --- Auto carry-over: copy uncompleted tasks from previous day ---
+    let carryOverCount = 0;
+    {
+      const prevDate = new Date(d);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevStr = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0') + '-' + String(prevDate.getDate()).padStart(2,'0');
+      const prevTasks = await db.getTasksByUser(user.id, prevStr);
+      const uncompleted = prevTasks.filter(t => t.status !== 'completed');
+      if (uncompleted.length > 0) {
+        const existingTasks = await db.getTasksByUser(user.id, d);
+        const existingTitles = new Set(existingTasks.map(t => t.title));
+        for (const t of uncompleted) {
+          if (!existingTitles.has(t.title)) {
+            const teamForDate = await db.getTeamForUser(user.id, d);
+            await db.addTask(
+              user.id,
+              teamForDate ? teamForDate.id : null,
+              d,
+              t.title,
+              t.category,
+              t.estimated_minutes,
+              '📋 前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : '')
+            );
+            carryOverCount++;
+          }
+        }
+      }
+    }
+
     const tasks = await db.getTasksByUser(user.id, d);
     const totalEst = tasks.reduce((s, t) => s + t.estimated_minutes, 0);
     const totalActual = tasks.reduce((s, t) => s + t.actual_minutes, 0);
@@ -203,7 +233,7 @@ app.get('/member', requireLogin, async (req, res) => {
       }
     }
 
-    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, reports });
+    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, reports, carryOverCount });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
