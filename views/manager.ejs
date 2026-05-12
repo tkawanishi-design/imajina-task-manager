@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>マネージャーダッシュボード - imajina Task Manager</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>imajina Task Manager</h1>
+    <div class="header-right">
+      <span class="phase-badge"><%= phase.label %></span>
+      <a href="/team-setup?date=<%= selectedDate %>" class="btn-logout" style="background:rgba(255,255,255,0.25);">チーム編成</a>
+      <div class="header-user">
+        <label class="avatar-upload">
+          <%- avatarHtml(user, 'sm') %>
+          <input type="file" accept="image/*" onchange="uploadAvatar(this, <%= user.id %>)">
+          <div class="avatar-overlay">変更</div>
+        </label>
+        <span class="user-name"><%= user.name %> (マネージャー)</span>
+      </div>
+      <a href="/logout" class="btn-logout">ログアウト</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Date selector -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <input type="date" id="date-select" value="<%= selectedDate %>" style="padding:8px 12px;border-radius:8px;border:1px solid var(--gray-300);font-size:14px;" onchange="location.href='/manager?date='+this.value">
+      <% if (selectedDate !== today) { %>
+        <a href="/manager" class="btn btn-sm btn-outline">今日に戻る</a>
+      <% } %>
+      <span style="color:var(--gray-500);font-size:14px;"><%= selectedDate %> のタスク状況</span>
+    </div>
+
+    <!-- Alerts -->
+    <% if (alerts.length > 0) { %>
+    <div class="alert-panel">
+      <h3 style="font-size:15px;margin-bottom:12px;color:var(--gray-700);">🔔 アラート (<%= alerts.length %>件)</h3>
+      <% alerts.forEach(a => { %>
+        <div class="alert-item <%= a.type %>">
+          <span class="alert-icon">
+            <%= a.type === 'delay' ? '🚨' : a.type === 'warning' ? '⚠️' : '❓' %>
+          </span>
+          <span><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
+        </div>
+      <% }) %>
+    </div>
+    <% } %>
+
+    <!-- Stats -->
+    <%
+      let totalTasks = 0, completedTasks = 0, delayedMembers = 0, totalMembers = 0;
+      teams.forEach(td => {
+        td.memberTasks.forEach(mt => {
+          totalMembers++;
+          totalTasks += mt.tasks.length;
+          completedTasks += mt.tasks.filter(t => t.status === 'completed').length;
+          if (mt.hasDelay) delayedMembers++;
+        });
+      });
+      const overallProg = totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0;
+    %>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value"><%= teams.length %></div>
+        <div class="stat-label">チーム数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= totalMembers %></div>
+        <div class="stat-label">稼働人数</div>
+      </div>
+      <div class="stat-card <%= overallProg < 40 && phase.phase >= 3 ? 'danger' : '' %>">
+        <div class="stat-value"><%= overallProg %>%</div>
+        <div class="stat-label">全体完了率</div>
+      </div>
+      <div class="stat-card <%= delayedMembers > 0 ? 'danger' : 'success' %>">
+        <div class="stat-value"><%= delayedMembers %></div>
+        <div class="stat-label">遅延メンバー</div>
+      </div>
+    </div>
+
+    <!-- Teams -->
+    <% if (teams.length === 0) { %>
+      <div class="card">
+        <div class="card-body" style="text-align:center;padding:60px;">
+          <p style="color:var(--gray-400);font-size:18px;margin-bottom:16px;">本日のチームが未編成です</p>
+          <a href="/team-setup?date=<%= selectedDate %>" class="btn btn-primary">チームを編成する</a>
+        </div>
+      </div>
+    <% } %>
+
+    <% teams.forEach(td => { %>
+      <div class="team-card">
+        <div class="team-card-header">
+          <h3><%= td.team.name %></h3>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <span class="team-leader-badge">👑 <%= td.leader ? td.leader.name : '未設定' %></span>
+            <span style="font-size:13px;opacity:0.8;"><%= td.memberTasks.length %>名</span>
+          </div>
+        </div>
+        <div style="padding:16px;">
+          <% td.memberTasks.forEach(mt => { %>
+            <div class="member-card <%= mt.hasDelay ? 'has-delay' : '' %>">
+              <div class="member-card-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                <div style="display:flex;align-items:center;">
+                  <div class="member-name-with-avatar">
+                    <%- avatarHtml(mt.user, 'sm') %>
+                    <span class="member-name">
+                      <%= mt.user.name %>
+                      <% if (mt.user.id === td.team.leader_id) { %><span style="font-size:12px;">👑</span><% } %>
+                    </span>
+                  </div>
+                  <% if (mt.hasDelay) { %><span style="color:var(--danger);font-size:12px;margin-left:8px;">⚠ 遅延あり</span><% } %>
+                  <% if (mt.hasQuestions) { %><span style="color:var(--primary);font-size:12px;margin-left:8px;">❓ 質問あり</span><% } %>
+                </div>
+                <div class="member-stats">
+                  <span>タスク: <%= mt.tasks.length %></span>
+                  <span>見積: <%= mt.totalEst %>分</span>
+                  <span>実績: <%= mt.totalActual %>分</span>
+                  <span style="font-weight:700;color:<%= mt.progress >= 80 ? 'var(--success)' : mt.progress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
+                    <%= mt.progress %>%
+                  </span>
+                </div>
+              </div>
+              <div class="member-card-body">
+                <div class="progress-bar-wrap" style="margin-bottom:12px;">
+                  <div class="progress-bar-fill <%= mt.progress < 30 ? 'low' : mt.progress < 70 ? 'mid' : 'high' %>" style="width:<%= mt.progress %>%"></div>
+                </div>
+                <% if (mt.tasks.length === 0) { %>
+                  <p style="color:var(--gray-400);font-size:13px;text-align:center;padding:16px;">タスク未登録</p>
+                <% } %>
+                <% mt.tasks.forEach((task, i) => { %>
+                  <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %>">
+                    <div class="task-top">
+                      <span class="task-title"><%= i + 1 %>. <%= task.title %></span>
+                      <span class="task-category"><%= task.category %></span>
+                    </div>
+                    <div class="task-meta">
+                      <span>見積: <%= task.estimated_minutes %>分</span>
+                      <span>実績: <%= task.actual_minutes %>分</span>
+                      <span>
+                        <% if (task.status === 'completed') { %>
+                          <span style="color:var(--success);font-weight:600;">✓ 完了</span>
+                        <% } else if (task.status === 'blocked') { %>
+                          <span style="color:var(--danger);font-weight:600;">🚫 ブロック</span>
+                        <% } else if (task.status === 'in_progress') { %>
+                          <span style="color:var(--primary);font-weight:600;">▶ 作業中</span>
+                        <% } else { %>
+                          <span style="color:var(--gray-400);">○ 未着手</span>
+                        <% } %>
+                      </span>
+                    </div>
+                    <div class="progress-bar-wrap" style="height:8px;">
+                      <div class="progress-bar-fill <%= task.progress < 30 ? 'low' : task.progress < 70 ? 'mid' : 'high' %>" style="width:<%= task.progress %>%"></div>
+                    </div>
+                    <div class="progress-label" style="color:<%= task.progress < 30 ? 'var(--danger)' : task.progress < 70 ? 'var(--warning)' : 'var(--success)' %>"><%= task.progress %>%</div>
+                    <% if (task.actual_minutes > task.estimated_minutes) { %>
+                      <div style="font-size:12px;color:var(--danger);margin-top:4px;">⚠ 見積超過: +<%= task.actual_minutes - task.estimated_minutes %>分</div>
+                    <% } %>
+                    <div class="comments-section" style="margin-top:8px;">
+                      <button class="btn btn-sm btn-outline" onclick="toggleManagerComments(<%= task.id %>, this)">💬 コメント</button>
+                      <div class="manager-comments" id="mgr-comments-<%= task.id %>" style="display:none;margin-top:8px;">
+                        <div id="mgr-comments-list-<%= task.id %>"></div>
+                        <div class="comment-input">
+                          <input type="text" placeholder="コメントを入力..." id="mgr-comment-text-<%= task.id %>">
+                          <button class="btn btn-sm btn-primary" onclick="addManagerComment(<%= task.id %>)">送信</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% }) %>
+
+    <!-- User Management -->
+    <div class="card" style="margin-top:24px;">
+      <div class="card-header">
+        <h2>メンバー管理</h2>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('add-user-modal').classList.add('active')">+ メンバー追加</button>
+      </div>
+      <div class="card-body">
+        <table style="width:100%;font-size:14px;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--gray-200);text-align:left;">
+              <th style="padding:8px;">名前</th>
+              <th style="padding:8px;">ログインID</th>
+              <th style="padding:8px;">権限</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% allUsers.forEach(u => { %>
+            <tr style="border-bottom:1px solid var(--gray-100);">
+              <td style="padding:8px;font-weight:600;">
+                <div class="member-name-with-avatar">
+                  <%- avatarHtml(u, 'sm') %>
+                  <span><%= u.name %></span>
+                </div>
+              </td>
+              <td style="padding:8px;color:var(--gray-500);"><%= u.login_id %></td>
+              <td style="padding:8px;">
+                <span class="badge" style="background:<%= u.role === 'manager' ? 'var(--danger-light);color:var(--danger)' : u.role === 'leader' ? 'var(--warning-light);color:#92400e' : 'var(--gray-100);color:var(--gray-600)' %>;padding:2px 10px;border-radius:8px;font-size:12px;font-weight:600;">
+                  <%= u.role === 'manager' ? 'マネージャー' : u.role === 'leader' ? 'リーダー' : 'メンバー' %>
+                </span>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div class="modal-overlay" id="add-user-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>メンバー追加</h3>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').classList.remove('active')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>名前</label>
+          <input type="text" id="new-user-name" placeholder="山田太郎">
+        </div>
+        <div class="form-group">
+          <label>ログインID</label>
+          <input type="text" id="new-user-login" placeholder="yamada">
+        </div>
+        <div class="form-group">
+          <label>パスワード</label>
+          <input type="text" id="new-user-pass" value="pass1234">
+        </div>
+        <div class="form-group">
+          <label>権限</label>
+          <select id="new-user-role">
+            <option value="member">メンバー</option>
+            <option value="leader">リーダー</option>
+            <option value="manager">マネージャー</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.modal-overlay').classList.remove('active')">キャンセル</button>
+        <button class="btn btn-primary" onclick="addUser()">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    const socket = io();
+    socket.on('task-updated', () => location.reload());
+    socket.on('report-submitted', () => location.reload());
+
+    function toggleManagerComments(taskId, btn) {
+      const el = document.getElementById('mgr-comments-' + taskId);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      if (el.style.display === 'block') loadComments(taskId, 'mgr-comments-list-' + taskId);
+    }
+    function addManagerComment(taskId) {
+      const input = document.getElementById('mgr-comment-text-' + taskId);
+      if (!input.value.trim()) return;
+      fetch('/api/tasks/' + taskId + '/comments', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ message: input.value, is_question: false })
+      }).then(r => r.json()).then(d => {
+        input.value = '';
+        renderComments(d.comments, 'mgr-comments-list-' + taskId);
+      });
+    }
+    function uploadAvatar(input, userId) {
+      if (!input.files[0]) return;
+      const formData = new FormData();
+      formData.append('avatar', input.files[0]);
+      fetch('/api/users/' + userId + '/avatar', { method: 'POST', body: formData })
+        .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+    }
+    function addUser() {
+      const name = document.getElementById('new-user-name').value;
+      const login_id = document.getElementById('new-user-login').value;
+      const password = document.getElementById('new-user-pass').value;
+      const role = document.getElementById('new-user-role').value;
+      if (!name || !login_id) return alert('名前とログインIDは必須です');
+      fetch('/api/users', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name, login_id, password, role })
+      }).then(r => r.json()).then(d => {
+        if (d.ok) location.reload();
+        else alert(d.error);
+      });
+    }
+  </script>
+</body>
+</html>

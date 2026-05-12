@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>チーム編成 - imajina Task Manager</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>imajina Task Manager</h1>
+    <div class="header-right">
+      <a href="/manager" class="btn-logout" style="background:rgba(255,255,255,0.25);">← ダッシュボードに戻る</a>
+      <span class="user-name"><%= user.name %></span>
+      <a href="/logout" class="btn-logout">ログアウト</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <h2>チーム編成</h2>
+      <input type="date" id="setup-date" value="<%= selectedDate %>" style="padding:8px 12px;border-radius:8px;border:1px solid var(--gray-300);font-size:14px;" onchange="location.href='/team-setup?date='+this.value">
+    </div>
+
+    <!-- Existing Teams -->
+    <% if (teams.length > 0) { %>
+      <h3 style="font-size:15px;color:var(--gray-600);margin-bottom:12px;">現在のチーム (<%= selectedDate %>)</h3>
+      <div class="grid-3" style="margin-bottom:32px;">
+        <% teams.forEach(t => { %>
+          <div class="card">
+            <div class="card-header">
+              <h2><%= t.name %></h2>
+              <button class="btn btn-sm btn-danger" onclick="deleteTeam(<%= t.id %>)">削除</button>
+            </div>
+            <div class="card-body">
+              <div style="margin-bottom:8px;">
+                <span style="font-size:12px;color:var(--gray-500);">リーダー:</span>
+                <% const leader = allUsers.find(u => u.id === t.leader_id); %>
+                <strong><%= leader ? leader.name : '未設定' %></strong>
+              </div>
+              <div style="font-size:12px;color:var(--gray-500);margin-bottom:4px;">メンバー:</div>
+              <% t.members.forEach(m => { %>
+                <div class="member-name-with-avatar" style="padding:4px 0;font-size:14px;">
+                  <%- avatarHtml(m, 'sm') %>
+                  <span><%= m.name %></span>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <!-- New Team Builder -->
+    <div class="team-builder">
+      <h3 style="margin-bottom:16px;">新しいチームを作成</h3>
+      <div class="grid-2">
+        <div>
+          <div class="form-group">
+            <label>チーム名</label>
+            <input type="text" id="team-name" placeholder="例: Aチーム">
+          </div>
+          <div class="form-group">
+            <label>リーダーを選択 (1人クリック)</label>
+            <div class="user-pool" id="leader-pool">
+              <% allUsers.forEach(u => { %>
+                <div class="user-chip" data-id="<%= u.id %>" onclick="selectLeader(this)">
+                  <%- avatarHtml(u, 'sm') %>
+                  <%= u.name %>
+                  <% if (u.role === 'leader') { %><span style="font-size:10px;">👑</span><% } %>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="form-group">
+            <label>メンバーを選択 (複数クリック)</label>
+            <div class="user-pool" id="member-pool">
+              <% allUsers.forEach(u => { %>
+                <div class="user-chip" data-id="<%= u.id %>" onclick="toggleMember(this)">
+                  <%- avatarHtml(u, 'sm') %>
+                  <%= u.name %>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="createTeam()" style="padding:12px 32px;">チームを作成</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedLeaderId = null;
+    let selectedMemberIds = new Set();
+
+    function selectLeader(el) {
+      document.querySelectorAll('#leader-pool .user-chip').forEach(c => c.classList.remove('leader'));
+      el.classList.add('leader');
+      selectedLeaderId = parseInt(el.dataset.id);
+    }
+
+    function toggleMember(el) {
+      const id = parseInt(el.dataset.id);
+      if (selectedMemberIds.has(id)) {
+        selectedMemberIds.delete(id);
+        el.classList.remove('selected');
+      } else {
+        selectedMemberIds.add(id);
+        el.classList.add('selected');
+      }
+    }
+
+    function createTeam() {
+      const name = document.getElementById('team-name').value;
+      const date = document.getElementById('setup-date').value;
+      if (!name) return alert('チーム名を入力してください');
+      if (!selectedLeaderId) return alert('リーダーを選択してください');
+      if (selectedMemberIds.size === 0) return alert('メンバーを選択してください');
+
+      fetch('/api/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          date,
+          leader_id: selectedLeaderId,
+          member_ids: Array.from(selectedMemberIds)
+        })
+      }).then(r => r.json()).then(d => {
+        if (d.ok) location.reload();
+      });
+    }
+
+    function deleteTeam(id) {
+      if (!confirm('このチームを削除しますか？')) return;
+      fetch('/api/teams/' + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => { if (d.ok) location.reload(); });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タスク管理 - <%= user.name %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>imajina Task Manager</h1>
+    <div class="header-right">
+      <span class="phase-badge"><%= phase.label %></span>
+      <% if (phase.next) { %><span class="user-name">次: <%= phase.next %></span><% } %>
+      <div class="header-user">
+        <label class="avatar-upload">
+          <%- avatarHtml(user, 'sm') %>
+          <input type="file" accept="image/*" onchange="uploadAvatar(this, <%= user.id %>)">
+          <div class="avatar-overlay">変更</div>
+        </label>
+        <span class="user-name"><%= user.name %></span>
+      </div>
+      <a href="/logout" class="btn-logout">ログアウト</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value"><%= tasks.length %></div>
+        <div class="stat-label">タスク数</div>
+      </div>
+      <div class="stat-card <%= overallProgress < 30 && phase.phase >= 3 ? 'danger' : overallProgress < 60 ? 'warning' : 'success' %>">
+        <div class="stat-value"><%= overallProgress %>%</div>
+        <div class="stat-label">全体進捗</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= totalEst %></div>
+        <div class="stat-label">見積合計 (分)</div>
+      </div>
+      <div class="stat-card <%= totalActual > totalEst ? 'danger' : '' %>">
+        <div class="stat-value"><%= totalActual %></div>
+        <div class="stat-label">実績合計 (分)</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Left: Task List -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h2>本日のタスク (<%= today %>)</h2>
+            <% if (myTeam) { %>
+              <span class="badge" style="background:var(--primary-light);color:var(--primary-dark);"><%= myTeam.name %></span>
+            <% } %>
+          </div>
+          <div class="card-body" id="task-list">
+            <% if (tasks.length === 0) { %>
+              <p style="text-align:center;color:var(--gray-400);padding:40px 0;">タスクを追加してください</p>
+            <% } %>
+            <% tasks.forEach((task, i) => { %>
+              <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %> <%= task.status === 'in_progress' ? 'in-progress' : '' %>" data-id="<%= task.id %>">
+                <div class="task-top">
+                  <span class="task-title"><%= i + 1 %>. <%= task.title %></span>
+                  <span class="task-category"><%= task.category %></span>
+                </div>
+                <div class="task-meta">
+                  <span>見積: <%= task.estimated_minutes %>分</span>
+                  <span>実績: <input type="number" class="actual-input" value="<%= task.actual_minutes %>" min="0" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
+                  <span>
+                    <select class="status-select" data-id="<%= task.id %>" style="padding:2px 6px;font-size:12px;border-radius:4px;">
+                      <option value="pending" <%= task.status === 'pending' ? 'selected' : '' %>>未着手</option>
+                      <option value="in_progress" <%= task.status === 'in_progress' ? 'selected' : '' %>>作業中</option>
+                      <option value="completed" <%= task.status === 'completed' ? 'selected' : '' %>>完了</option>
+                      <option value="blocked" <%= task.status === 'blocked' ? 'selected' : '' %>>ブロック</option>
+                    </select>
+                  </span>
+                </div>
+                <div class="task-actions">
+                  <div class="task-progress-inline">
+                    <input type="range" min="0" max="100" step="5" value="<%= task.progress %>" class="progress-slider" data-id="<%= task.id %>">
+                    <span class="progress-val"><%= task.progress %>%</span>
+                  </div>
+                  <button class="btn btn-sm btn-outline" onclick="toggleComments(<%= task.id %>)">💬</button>
+                  <button class="btn btn-sm btn-danger btn-icon" onclick="deleteTask(<%= task.id %>)">×</button>
+                </div>
+                <% if (task.ai_suggestion) { %>
+                  <div class="ai-suggestion"><%= task.ai_suggestion %></div>
+                <% } %>
+                <div class="comments-section" id="comments-<%= task.id %>" style="display:none;">
+                  <div class="comments-list" id="comments-list-<%= task.id %>"></div>
+                  <div class="comment-input">
+                    <input type="text" placeholder="コメント or 質問を入力..." id="comment-text-<%= task.id %>">
+                    <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;">
+                      <input type="checkbox" id="is-question-<%= task.id %>"> 質問
+                    </label>
+                    <button class="btn btn-sm btn-primary" onclick="addComment(<%= task.id %>)">送信</button>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+          <div class="task-add-form">
+            <div class="form-group">
+              <input type="text" id="new-task-title" placeholder="新しいタスクを入力...（例: 赤尾さま 採用ページ更新）">
+            </div>
+            <div class="form-group time-input">
+              <input type="number" id="new-task-time" placeholder="分" min="0" step="5">
+            </div>
+            <button class="btn btn-primary" onclick="addTask()">追加</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Timeline + Team -->
+      <div>
+        <!-- Report Timeline -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><h2>報告タイムライン</h2></div>
+          <div class="card-body">
+            <div class="timeline">
+              <% const times = [{t:'10:00', l:'タスク登録・確認', p:1},{t:'13:00', l:'中間報告', p:2},{t:'15:00', l:'進捗確認・溢れチェック', p:3},{t:'18:00', l:'最終追い込み', p:4},{t:'20:00', l:'退勤目標', p:5}]; %>
+              <% times.forEach(item => { %>
+                <% const reported = reports.find(r => r.report_time === item.t); %>
+                <div class="timeline-item">
+                  <div class="timeline-dot <%= reported ? 'done' : phase.phase >= item.p ? 'active' : '' %>"></div>
+                  <div class="timeline-content">
+                    <div class="timeline-time"><%= item.t %> - <%= item.l %></div>
+                    <% if (phase.phase >= item.p && !reported && item.t !== '20:00') { %>
+                      <button class="btn btn-sm btn-success" style="margin-top:4px;" onclick="submitReport('<%= item.t %>')">報告する</button>
+                    <% } else if (reported) { %>
+                      <div class="timeline-label" style="color:var(--success);">報告済み</div>
+                    <% } %>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Members -->
+        <% if (myTeam && teamMembers.length > 0) { %>
+        <div class="card">
+          <div class="card-header"><h2>チームメンバー (<%= myTeam.name %>)</h2></div>
+          <div class="card-body">
+            <% teamMembers.forEach(m => { %>
+              <div class="team-member-row">
+                <div class="member-name-with-avatar">
+                  <%- avatarHtml(m, 'sm') %>
+                  <span style="font-weight:600;"><%= m.name %></span>
+                </div>
+                <span style="font-size:13px;color:var(--gray-500);"><%= m.id === myTeam.leader_id ? '👑 リーダー' : 'メンバー' %></span>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duplicate Modal -->
+  <div class="modal-overlay" id="duplicate-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>⚠ タスク重複の可能性</h3>
+        <button class="modal-close" onclick="closeDuplicateModal()">×</button>
+      </div>
+      <div class="modal-body" id="duplicate-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeDuplicateModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="confirmAddTask()">それでも追加</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    const socket = io();
+    socket.emit('join', { userId: <%= user.id %> });
+    socket.on('task-updated', () => location.reload());
+    socket.on('comment-added', () => {});
+  </script>
+</body>
+</html>

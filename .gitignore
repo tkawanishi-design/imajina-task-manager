@@ -1,0 +1,6 @@
+node_modules/
+data.json
+public/avatars/*.png
+public/avatars/*.jpg
+public/avatars/*.jpeg
+.env

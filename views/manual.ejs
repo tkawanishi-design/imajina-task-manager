@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使い方マニュアル - imajina Task Manager</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .manual-container { max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+    .manual-section { background: #fff; border-radius: 16px; padding: 32px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .manual-section h2 { font-size: 20px; color: var(--primary-dark); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--primary-light); }
+    .manual-section h3 { font-size: 16px; color: var(--gray-700); margin: 20px 0 8px; }
+    .manual-section p, .manual-section li { font-size: 14px; line-height: 1.8; color: var(--gray-600); }
+    .manual-section ul, .manual-section ol { padding-left: 20px; margin: 8px 0; }
+    .manual-section li { margin-bottom: 4px; }
+    .login-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
+    .login-table th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; }
+    .login-table td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); }
+    .login-table tr:hover td { background: var(--primary-light); }
+    .role-badge { display: inline-block; padding: 2px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+    .role-manager { background: #fee2e2; color: #dc2626; }
+    .role-leader { background: #fef3c7; color: #92400e; }
+    .role-member { background: var(--gray-100); color: var(--gray-600); }
+    .timeline-guide { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .timeline-step { display: flex; align-items: flex-start; gap: 12px; }
+    .timeline-step .time-box { min-width: 70px; padding: 6px 10px; background: var(--primary); color: #fff; border-radius: 8px; font-weight: 700; font-size: 14px; text-align: center; }
+    .timeline-step .step-desc { flex: 1; }
+    .timeline-step .step-desc strong { color: var(--gray-700); }
+    .tip-box { background: #f0f9ff; border-left: 4px solid var(--primary); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; color: var(--gray-600); }
+    .tip-box strong { color: var(--primary-dark); }
+    .warning-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; color: #92400e; }
+    .purpose-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 16px; }
+    .purpose-card { background: var(--primary-light); border-radius: 12px; padding: 20px; text-align: center; }
+    .purpose-card .icon { font-size: 32px; margin-bottom: 8px; }
+    .purpose-card .label { font-size: 14px; font-weight: 700; color: var(--primary-dark); margin-bottom: 4px; }
+    .purpose-card .desc { font-size: 12px; color: var(--gray-500); }
+    .screenshot-placeholder { background: var(--gray-100); border-radius: 12px; padding: 24px; text-align: center; color: var(--gray-400); font-size: 13px; margin: 12px 0; }
+    @media print {
+      .header, .no-print { display: none !important; }
+      .manual-container { padding: 0; }
+      .manual-section { box-shadow: none; border: 1px solid #eee; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>imajina Task Manager</h1>
+    <div class="header-right">
+      <a href="/login" class="btn-logout" style="background:rgba(255,255,255,0.25);">ログインへ</a>
+      <button class="btn-logout no-print" onclick="window.print()">印刷 / PDF</button>
+    </div>
+  </div>
+
+  <div class="manual-container">
+    <!-- Title -->
+    <div class="manual-section" style="text-align:center;padding:48px 32px;">
+      <h1 style="font-size:28px;color:var(--primary-dark);margin-bottom:8px;">imajina Task Manager</h1>
+      <p style="font-size:16px;color:var(--gray-500);margin-bottom:4px;">使い方マニュアル</p>
+      <p style="font-size:13px;color:var(--gray-400);">2026年5月 imajina社内用</p>
+    </div>
+
+    <!-- Purpose -->
+    <div class="manual-section">
+      <h2>1. このシステムの目的</h2>
+      <p>imajina Task Managerは、<strong>チーム全体のタスク進捗を「見える化」</strong>し、日々の業務効率を向上させるために開発された社内ツールです。</p>
+
+      <h3>導入の背景</h3>
+      <p>これまでLINEで行っていたタスク報告を一元管理し、以下の課題を解決します：</p>
+      <ul>
+        <li>誰が何をやっているか把握しづらい → <strong>ダッシュボードで全員の状況を一目で確認</strong></li>
+        <li>タスクの遅れに気づくのが遅い → <strong>自動アラートで即座に検知</strong></li>
+        <li>同じ作業を複数人がやってしまう → <strong>重複検知で自動警告</strong></li>
+        <li>報告のタイミングがバラバラ → <strong>1日5回の報告タイムラインで統一</strong></li>
+      </ul>
+
+      <div class="purpose-grid">
+        <div class="purpose-card">
+          <div class="icon">📋</div>
+          <div class="label">タスク管理</div>
+          <div class="desc">登録・進捗・時間を一元管理</div>
+        </div>
+        <div class="purpose-card">
+          <div class="icon">👥</div>
+          <div class="label">チーム編成</div>
+          <div class="desc">日替わりチームを簡単設定</div>
+        </div>
+        <div class="purpose-card">
+          <div class="icon">🔔</div>
+          <div class="label">アラート</div>
+          <div class="desc">遅延・質問を自動検知</div>
+        </div>
+        <div class="purpose-card">
+          <div class="icon">🤖</div>
+          <div class="label">AIサジェスト</div>
+          <div class="desc">タスクの進め方を自動提案</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Info -->
+    <div class="manual-section">
+      <h2>2. ログイン情報一覧</h2>
+      <p>以下のログインIDとパスワードでログインしてください。</p>
+      <div class="warning-box">
+        <strong>注意：</strong>パスワードは初期設定です。セキュリティのため、今後変更機能を追加予定です。
+      </div>
+      <table class="login-table">
+        <thead>
+          <tr>
+            <th>名前</th>
+            <th>ログインID</th>
+            <th>パスワード</th>
+            <th>権限</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>河西 辰哉</td>
+            <td><code>kawanishi</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-manager">マネージャー</span></td>
+          </tr>
+          <tr>
+            <td>平林 美咲</td>
+            <td><code>hirabayashi</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-manager">マネージャー</span></td>
+          </tr>
+          <tr>
+            <td>青江 美波</td>
+            <td><code>aoe</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-leader">リーダー</span></td>
+          </tr>
+          <tr>
+            <td>早川 由里子</td>
+            <td><code>hayakawa</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-leader">リーダー</span></td>
+          </tr>
+          <tr>
+            <td>竹村 理央</td>
+            <td><code>takemura</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-leader">リーダー</span></td>
+          </tr>
+          <tr>
+            <td>渡邊 竣介</td>
+            <td><code>watanabe</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+          <tr>
+            <td>尾形 海斗</td>
+            <td><code>ogata</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+          <tr>
+            <td>熊崎 美優</td>
+            <td><code>kumazaki</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+          <tr>
+            <td>神崎 祐樹</td>
+            <td><code>kanzaki</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+          <tr>
+            <td>秋山 柚衣</td>
+            <td><code>akiyama</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+          <tr>
+            <td>蕪木 康成</td>
+            <td><code>kaburagi</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+          <tr>
+            <td>青木 遥斗</td>
+            <td><code>aoki</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+          <tr>
+            <td>横山 嶺州多</td>
+            <td><code>yokoyama</code></td>
+            <td><code>pass1234</code></td>
+            <td><span class="role-badge role-member">メンバー</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Role Description -->
+    <div class="manual-section">
+      <h2>3. 権限の違い</h2>
+      <table class="login-table">
+        <thead>
+          <tr>
+            <th>権限</th>
+            <th>できること</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="role-badge role-manager">マネージャー</span></td>
+            <td>
+              全チームの進捗確認 / アラート確認 / チーム編成 / メンバー追加 / コメント送信
+            </td>
+          </tr>
+          <tr>
+            <td><span class="role-badge role-leader">リーダー</span></td>
+            <td>
+              自分のタスク管理 / チームメンバーの確認 / 報告送信 / コメント・質問
+            </td>
+          </tr>
+          <tr>
+            <td><span class="role-badge role-member">メンバー</span></td>
+            <td>
+              自分のタスク管理 / 報告送信 / コメント・質問
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Daily Flow -->
+    <div class="manual-section">
+      <h2>4. 1日の流れ</h2>
+      <p>以下のタイムラインに沿って、報告ボタンを押してください。</p>
+      <div class="timeline-guide">
+        <div class="timeline-step">
+          <div class="time-box">10:00</div>
+          <div class="step-desc">
+            <strong>タスク登録・確認</strong><br>
+            今日やるタスクを全て登録します。タスク名と見積時間（分）を入力してください。<br>
+            AIが自動でカテゴリ分類とアドバイスを表示します。
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time-box">13:00</div>
+          <div class="step-desc">
+            <strong>中間報告</strong><br>
+            午前中の進捗をスライダーで更新し、「報告する」ボタンを押してください。<br>
+            実績時間も入力しましょう。
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time-box">15:00</div>
+          <div class="step-desc">
+            <strong>進捗確認・溢れチェック</strong><br>
+            タスクが予定通り進んでいるか確認。遅れている場合はマネージャーにアラートが届きます。
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time-box">18:00</div>
+          <div class="step-desc">
+            <strong>最終追い込み</strong><br>
+            残タスクの最終確認。完了したものは100%にして「完了」ステータスに。
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time-box">20:00</div>
+          <div class="step-desc">
+            <strong>退勤目標</strong><br>
+            全タスク完了を目指す時間です。お疲れ様でした！
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- How to Use: Member -->
+    <div class="manual-section">
+      <h2>5. メンバー画面の使い方</h2>
+
+      <h3>5-1. タスクを追加する</h3>
+      <ol>
+        <li>画面下部の入力欄にタスク名を入力（例：「赤尾さま 採用ページ更新」）</li>
+        <li>見積時間（分）を入力</li>
+        <li>「追加」ボタンを押す</li>
+      </ol>
+      <div class="tip-box">
+        <strong>ポイント：</strong>タスク名にキーワードを含めると、AIが自動でカテゴリ分けとアドバイスを表示します。<br>
+        例：「メール」→ メール対応 / 「資料」→ 資料作成 / 「打ち合わせ」→ 打ち合わせ
+      </div>
+
+      <h3>5-2. 進捗を更新する</h3>
+      <ol>
+        <li><strong>スライダー</strong>を動かして進捗率（0〜100%）を設定</li>
+        <li><strong>実績時間</strong>の数字を変更して実際にかかった時間を入力</li>
+        <li><strong>ステータス</strong>を選択（未着手 / 作業中 / 完了 / ブロック）</li>
+      </ol>
+      <div class="tip-box">
+        <strong>自動連動：</strong>スライダーを100%にすると自動で「完了」に、ステータスを「完了」にすると自動で100%になります。
+      </div>
+
+      <h3>5-3. コメント・質問を送る</h3>
+      <ol>
+        <li>タスクの💬ボタンをクリック</li>
+        <li>コメントを入力</li>
+        <li>マネージャーへの質問の場合は「質問」チェックを入れる</li>
+        <li>「送信」を押す</li>
+      </ol>
+      <div class="warning-box">
+        <strong>質問チェック</strong>を入れると、マネージャー画面にアラートが表示されます。返答が必要な場合は必ずチェックを入れてください。
+      </div>
+
+      <h3>5-4. 報告する</h3>
+      <p>右側のタイムラインに表示される「報告する」ボタンを、該当時間になったら押してください。メモを任意で入力できます。</p>
+
+      <h3>5-5. プロフィール画像を変更する</h3>
+      <p>ヘッダー右上の自分のアイコンにマウスを合わせると「変更」と表示されます。クリックして画像を選択するとアップロードされます。</p>
+    </div>
+
+    <!-- How to Use: Manager -->
+    <div class="manual-section">
+      <h2>6. マネージャー画面の使い方</h2>
+
+      <h3>6-1. ダッシュボード</h3>
+      <p>ログインすると、以下の情報が一目で確認できます：</p>
+      <ul>
+        <li><strong>アラートパネル</strong> — 遅延・質問・進捗低下を自動検知して表示</li>
+        <li><strong>統計カード</strong> — チーム数・稼働人数・全体完了率・遅延メンバー数</li>
+        <li><strong>チームごとのメンバータスク一覧</strong> — クリックで詳細展開</li>
+      </ul>
+
+      <h3>6-2. チーム編成</h3>
+      <ol>
+        <li>ヘッダーの「チーム編成」をクリック</li>
+        <li>チーム名を入力</li>
+        <li>リーダーを1人クリック（👑マークが付きます）</li>
+        <li>メンバーを複数クリック（青くなります）</li>
+        <li>「チームを作成」を押す</li>
+      </ol>
+      <div class="tip-box">
+        <strong>ポイント：</strong>チームは日ごとに編成できます。日付を変更して、翌日のチームを事前に作成することも可能です。
+      </div>
+
+      <h3>6-3. メンバー追加</h3>
+      <p>ダッシュボード下部の「メンバー管理」セクションから「+ メンバー追加」ボタンで新しいメンバーを登録できます。</p>
+
+      <h3>6-4. コメント返信</h3>
+      <p>各タスクの💬ボタンからコメントの確認・返信ができます。質問アラートが表示されたら優先的に確認してください。</p>
+    </div>
+
+    <!-- Duplicate Detection -->
+    <div class="manual-section">
+      <h2>7. 重複検知機能</h2>
+      <p>タスクを追加した際、他のメンバーが似たタスクを登録していた場合、自動で警告が表示されます。</p>
+      <ul>
+        <li>「○○さんが『△△』を登録中（進捗: ○○%）」と表示</li>
+        <li>「それでも追加」を押すとそのまま登録</li>
+        <li>「キャンセル」を押すと取り消し</li>
+      </ul>
+      <div class="tip-box">
+        <strong>活用法：</strong>同じクライアントの案件を複数人で分担する場合でも、念のため確認してから進めましょう。
+      </div>
+    </div>
+
+    <!-- AI Feature -->
+    <div class="manual-section">
+      <h2>8. AIサジェスト機能</h2>
+      <p>タスクを登録すると、タスク名に含まれるキーワードを分析して、<strong>効率的な進め方のアドバイス</strong>が自動表示されます。</p>
+      <h3>対応キーワード例</h3>
+      <table class="login-table">
+        <thead>
+          <tr><th>キーワード</th><th>カテゴリ</th><th>アドバイス例</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>メール・返信・送付</td><td>メール対応</td><td>テンプレート活用、まとめて処理</td></tr>
+          <tr><td>資料・提案書・レポート</td><td>資料作成</td><td>アウトライン作成→内容を埋める</td></tr>
+          <tr><td>打ち合わせ・会議</td><td>打ち合わせ</td><td>アジェンダ整理、ネクストアクション確認</td></tr>
+          <tr><td>見積・請求</td><td>見積・請求</td><td>テンプレート確認、ダブルチェック</td></tr>
+          <tr><td>デザイン・制作</td><td>デザイン・制作</td><td>ラフ案→方向性確認→本制作</td></tr>
+          <tr><td>採用・面接</td><td>採用関連</td><td>掲載内容のファクトチェック</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FAQ -->
+    <div class="manual-section">
+      <h2>9. よくある質問</h2>
+      <h3>Q. タスクを間違えて登録した場合は？</h3>
+      <p>タスクの右にある「×」ボタンで削除できます。確認ダイアログが出るので安心してください。</p>
+
+      <h3>Q. 昨日のタスクを見たい場合は？</h3>
+      <p>マネージャー画面の日付セレクターから過去の日付を選択すると、その日のタスク状況を確認できます。</p>
+
+      <h3>Q. 「ブロック」ステータスとは？</h3>
+      <p>他の人の作業完了待ちや、確認待ちなど、自分では進められない状態のときに使います。マネージャーへの質問とあわせて使うと効果的です。</p>
+
+      <h3>Q. パスワードを忘れた場合は？</h3>
+      <p>マネージャー（河西・平林）に連絡してください。初期パスワードは全員「pass1234」です。</p>
+
+      <h3>Q. スマホからも使える？</h3>
+      <p>はい、レスポンシブデザインに対応しているため、スマホのブラウザからもアクセスできます。</p>
+    </div>
+
+    <!-- Access -->
+    <div class="manual-section">
+      <h2>10. アクセス方法</h2>
+      <p>以下のURLにアクセスしてログインしてください。</p>
+      <div style="background:var(--gray-100);padding:16px 20px;border-radius:8px;font-family:monospace;font-size:16px;text-align:center;margin:12px 0;">
+        http://localhost:3001
+      </div>
+      <div class="tip-box">
+        <strong>社内ネットワーク展開後：</strong>URLが変更になった場合はマネージャーから改めてお知らせします。
+      </div>
+    </div>
+
+    <div class="manual-section" style="text-align:center;padding:24px;color:var(--gray-400);font-size:13px;">
+      imajina Task Manager マニュアル v1.0<br>
+      2026年5月作成 | お問い合わせ: 河西・平林まで
+    </div>
+  </div>
+</body>
+</html>
