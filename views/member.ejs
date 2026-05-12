@@ -172,11 +172,11 @@
             <% tasks.forEach((task, i) => { %>
               <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %> <%= task.status === 'in_progress' ? 'in-progress' : '' %>" data-id="<%= task.id %>">
                 <div class="task-top">
-                  <span class="task-title"><%= i + 1 %>. <%= task.title %></span>
+                  <span class="task-title task-title-editable" onclick="editTitle(this, <%= task.id %>)" title="クリックして編集"><%= i + 1 %>. <%= task.title %></span>
                   <span class="task-category"><%= task.category %></span>
                 </div>
                 <div class="task-meta">
-                  <span>見積: <%= task.estimated_minutes %>分</span>
+                  <span>見積: <input type="number" class="est-input" value="<%= task.estimated_minutes %>" min="0" step="5" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
                   <span>実績: <input type="number" class="actual-input" value="<%= task.actual_minutes %>" min="0" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
                   <span>
                     <select class="status-select" data-id="<%= task.id %>" style="padding:2px 6px;font-size:12px;border-radius:4px;">

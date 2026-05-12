@@ -86,6 +86,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  document.querySelectorAll('.est-input').forEach(input => {
+    input.addEventListener('change', function() {
+      updateTask(this.dataset.id, { estimated_minutes: parseInt(this.value) || 0 });
+    });
+  });
+
   document.querySelectorAll('.status-select').forEach(select => {
     select.addEventListener('change', function() {
       const status = this.value;
@@ -102,6 +108,41 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+function editTitle(el, taskId) {
+  if (el.querySelector('input')) return; // already editing
+  const currentText = el.textContent.replace(/^\d+\.\s*/, '').trim();
+  const num = el.textContent.match(/^(\d+)\./)?.[1] || '';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentText;
+  input.className = 'title-edit-input';
+  input.style.cssText = 'width:100%;padding:4px 8px;font-size:14px;font-weight:600;border:2px solid var(--primary);border-radius:6px;outline:none;';
+  el.textContent = '';
+  el.appendChild(input);
+  input.focus();
+  input.select();
+
+  function save() {
+    const newTitle = input.value.trim();
+    if (newTitle && newTitle !== currentText) {
+      updateTask(taskId, { title: newTitle });
+      el.textContent = num + '. ' + newTitle;
+    } else {
+      el.textContent = num + '. ' + currentText;
+    }
+  }
+  input.addEventListener('blur', save);
+  input.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') { input.blur(); }
+  });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      input.removeEventListener('blur', save);
+      el.textContent = num + '. ' + currentText;
+    }
+  });
+}
 
 function toggleComments(taskId) {
   const el = document.getElementById('comments-' + taskId);
