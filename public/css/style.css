@@ -652,6 +652,16 @@ textarea { resize: vertical; min-height: 80px; }
   font-weight: 600;
   color: var(--gray-700);
 }
+.motivation-message {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--gray-600);
+  padding: 8px;
+  background: linear-gradient(135deg, #eff6ff, #fef9c3);
+  border-radius: 8px;
+}
 
 /* ===== INLINE PROGRESS BAR (Manager member header) ===== */
 .member-progress-inline {

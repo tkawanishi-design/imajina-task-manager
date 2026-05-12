@@ -77,16 +77,36 @@ function currentPhase() {
   return { label, next, phase, remainToDeadline, remainToFinal, currentTime };
 }
 
-function generateSuggestion(title) {
+function generateSuggestion(title, estimatedMinutes) {
   const t = title;
   const suggestions = [];
+
+  // --- Task decomposition suggestions ---
+  const multiParts = t.split(/[・、,\/＋\+]/).filter(p => p.trim().length >= 2);
+  if (multiParts.length >= 3) {
+    suggestions.push('📋 細分化の提案: このタスクは複数の作業を含んでいそうです。分けて登録すると進捗が見えやすくなります → ' + multiParts.map((p, i) => `「${p.trim()}」`).join(' / '));
+  } else if (multiParts.length === 2 && (estimatedMinutes || 0) >= 60) {
+    suggestions.push('📋 細分化の提案: 60分以上のタスクは分割すると管理しやすいです → ' + multiParts.map(p => `「${p.trim()}」`).join(' と ') + ' に分けてみては？');
+  }
+
+  // Long estimated time warning
+  if ((estimatedMinutes || 0) >= 120) {
+    suggestions.push('⏰ 見積が2時間以上あります。30〜60分単位のサブタスクに分けると、進捗が見えて集中しやすくなります。');
+  } else if ((estimatedMinutes || 0) >= 60 && multiParts.length < 2) {
+    suggestions.push('⏰ 1時間以上のタスクです。「調査→下書き→仕上げ」のようにステップを意識すると進めやすいです。');
+  }
+
+  // Vague task detection
+  if (/^.{1,4}$/.test(t.trim()) || /^(対応|作業|確認|準備|整理|その他|タスク|業務)$/.test(t.trim())) {
+    suggestions.push('💡 タスク名がざっくりしています。「誰に・何を・どこまで」を入れると作業イメージが明確になります。例: 「○○さま 提案書 初稿作成」');
+  }
+
+  // --- Work tips ---
   if (/メール|返信|送付/.test(t)) {
     suggestions.push('テンプレートがあれば活用。複数件はまとめて処理すると効率的。');
-    suggestions.push('件名・宛先を先に整理してから本文作成に入ると手戻りが減ります。');
   }
   if (/資料|提案書|レポート|報告/.test(t)) {
     suggestions.push('まずアウトライン(目次)を作成→内容を埋める順序で進めましょう。');
-    suggestions.push('過去の類似資料があれば参考にすると時短になります。');
   }
   if (/打ち合わせ|ミーティング|会議|mtg/i.test(t)) {
     suggestions.push('事前にアジェンダと目的を整理。終了時にネクストアクションを確認。');
@@ -291,7 +311,7 @@ app.post('/api/tasks', requireLogin, async (req, res) => {
     const user = req.session.user;
     const d = date || today();
     const category = autoCategory(title);
-    const ai_suggestion = generateSuggestion(title);
+    const ai_suggestion = generateSuggestion(title, estimated_minutes);
     const dupes = await db.findDuplicates(title, d, user.id);
     const myTeam = await db.getTeamForUser(user.id, d);
     const task = await db.addTask(user.id, myTeam ? myTeam.id : null, d, title, category, estimated_minutes || 0, ai_suggestion);
@@ -313,7 +333,7 @@ app.put('/api/tasks/:id', requireLogin, async (req, res) => {
     if (title !== undefined) {
       updates.title = title;
       updates.category = autoCategory(title);
-      updates.ai_suggestion = generateSuggestion(title);
+      updates.ai_suggestion = generateSuggestion(title, estimated_minutes);
     }
     if (estimated_minutes !== undefined) updates.estimated_minutes = estimated_minutes;
     if (priority !== undefined) updates.priority = priority;
