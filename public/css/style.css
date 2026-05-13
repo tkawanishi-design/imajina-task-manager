@@ -472,7 +472,9 @@ textarea { resize: vertical; min-height: 80px; }
   border: 2px solid transparent;
   transition: all 0.2s;
   user-select: none;
+  position: relative;
 }
+.user-chip > * { pointer-events: none; }
 .user-chip:hover { background: var(--primary-light); }
 .user-chip.selected { background: var(--primary); color: white; border-color: var(--primary-dark); }
 .user-chip.leader { background: var(--warning); color: white; border-color: #d97706; }
