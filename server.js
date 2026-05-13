@@ -337,7 +337,7 @@ app.delete('/api/teams/:id', requireManager, async (req, res) => {
 
 app.post('/api/tasks', requireLogin, async (req, res) => {
   try {
-    const { title, estimated_minutes, date } = req.body;
+    const { title, estimated_minutes, date, priority } = req.body;
     const user = req.session.user;
     const d = date || today();
     const category = autoCategory(title);
@@ -345,8 +345,19 @@ app.post('/api/tasks', requireLogin, async (req, res) => {
     const dupes = await db.findDuplicates(title, d, user.id);
     const myTeam = await db.getTeamForUser(user.id, d);
     const task = await db.addTask(user.id, myTeam ? myTeam.id : null, d, title, category, estimated_minutes || 0, ai_suggestion);
+    if (priority) await db.updateTask(task.id, { priority: parseInt(priority) });
     io.emit('task-updated', { userId: user.id, date: d });
     res.json({ ok: true, task, duplicates: dupes });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/tasks/reorder', requireLogin, async (req, res) => {
+  try {
+    const { order } = req.body;
+    for (const item of order) {
+      await db.updateTask(item.id, { sort_order: item.sort_order });
+    }
+    res.json({ ok: true });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 

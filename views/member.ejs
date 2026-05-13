@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>タスク管理 - <%= user.name %></title>
   <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 </head>
 <body>
   <div class="header">
@@ -170,8 +171,14 @@
               <p style="text-align:center;color:var(--gray-400);padding:40px 0;">タスクを追加してください</p>
             <% } %>
             <% tasks.forEach((task, i) => { %>
-              <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %> <%= task.status === 'in_progress' ? 'in-progress' : '' %>" data-id="<%= task.id %>">
+              <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %> <%= task.status === 'in_progress' ? 'in-progress' : '' %> priority-<%= task.priority || 3 %>" data-id="<%= task.id %>">
                 <div class="task-top">
+                  <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+                  <% if ((task.priority || 3) === 1) { %>
+                    <span class="priority-badge p1">必須</span>
+                  <% } else if ((task.priority || 3) === 2) { %>
+                    <span class="priority-badge p2">重要</span>
+                  <% } %>
                   <span class="task-title task-title-editable" onclick="editTitle(this, <%= task.id %>)" title="クリックして編集"><%= i + 1 %>. <%= task.title %></span>
                   <span class="task-category"><%= task.category %></span>
                 </div>
@@ -217,6 +224,13 @@
             </div>
             <div class="form-group time-input">
               <input type="number" id="new-task-time" placeholder="分" min="0" step="5">
+            </div>
+            <div class="form-group">
+              <select id="new-task-priority" class="priority-select">
+                <option value="3">通常</option>
+                <option value="2">🟡 重要</option>
+                <option value="1">🔴 必須</option>
+              </select>
             </div>
             <button class="btn btn-primary" onclick="addTask()">追加</button>
           </div>
@@ -355,6 +369,34 @@
     socket.emit('join', { userId: <%= user.id %> });
     socket.on('task-updated', () => location.reload());
     socket.on('comment-added', () => {});
+
+    // Sortable drag & drop
+    const taskList = document.getElementById('task-list');
+    if (taskList) {
+      new Sortable(taskList, {
+        handle: '.drag-handle',
+        animation: 200,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: function() {
+          const items = taskList.querySelectorAll('.task-item[data-id]');
+          const order = [];
+          items.forEach((el, idx) => {
+            order.push({ id: parseInt(el.dataset.id), sort_order: idx + 1 });
+            // update visible number
+            const titleEl = el.querySelector('.task-title');
+            if (titleEl) {
+              titleEl.textContent = titleEl.textContent.replace(/^\d+\./, (idx + 1) + '.');
+            }
+          });
+          fetch('/api/tasks/reorder', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order })
+          });
+        }
+      });
+    }
   </script>
 </body>
 </html>
