@@ -65,7 +65,7 @@
             <div class="user-pool" id="leader-pool">
               <% allUsers.forEach(u => { %>
                 <% const isAssigned = assignedUserIds.includes(u.id); %>
-                <div class="user-chip <%= isAssigned ? 'disabled' : '' %>" data-id="<%= u.id %>" <%= isAssigned ? '' : 'onclick="selectLeader(this)"' %>>
+                <div class="user-chip <%= isAssigned ? 'disabled' : '' %>" data-id="<%= u.id %>" <%- isAssigned ? '' : 'onclick="selectLeader(this)"' %>>
                   <%- avatarHtml(u, 'sm') %>
                   <%= u.name %>
                   <% if (u.role === 'leader') { %><span style="font-size:10px;">👑</span><% } %>
@@ -81,7 +81,7 @@
             <div class="user-pool" id="member-pool">
               <% allUsers.forEach(u => { %>
                 <% const isAssigned = assignedUserIds.includes(u.id); %>
-                <div class="user-chip <%= isAssigned ? 'disabled' : '' %>" data-id="<%= u.id %>" <%= isAssigned ? '' : 'onclick="toggleMember(this)"' %>>
+                <div class="user-chip <%= isAssigned ? 'disabled' : '' %>" data-id="<%= u.id %>" <%- isAssigned ? '' : 'onclick="toggleMember(this)"' %>>
                   <%- avatarHtml(u, 'sm') %>
                   <%= u.name %>
                   <% if (isAssigned) { %><span style="font-size:10px;color:var(--gray-400);">配属済</span><% } %>
