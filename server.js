@@ -339,6 +339,53 @@ app.delete('/api/teams/:id', requireManager, async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+// --- タスク細分化サジェストAPI ---
+app.post('/api/tasks/suggest-split', requireLogin, (req, res) => {
+  const { title, estimated_minutes } = req.body;
+  const total = estimated_minutes || 60;
+
+  // タイトルからキーワード抽出
+  const cleanTitle = title.replace(/[\s　]+/g, ' ').trim();
+
+  // タスク種別を推定してテンプレート分割
+  const suggestions = [];
+
+  if (/資料|提案書|企画書|レポート|報告書/.test(title)) {
+    suggestions.push({ title: cleanTitle + '・構成案＆アウトライン作成', minutes: Math.min(30, Math.round(total * 0.25)) });
+    suggestions.push({ title: cleanTitle + '・本文作成', minutes: Math.min(45, Math.round(total * 0.4)) });
+    suggestions.push({ title: cleanTitle + '・デザイン調整＆仕上げ', minutes: Math.min(30, Math.round(total * 0.2)) });
+    suggestions.push({ title: cleanTitle + '・最終チェック＆提出', minutes: Math.min(20, Math.round(total * 0.15)) });
+  } else if (/メール|送付|連絡|対応/.test(title)) {
+    suggestions.push({ title: cleanTitle + '・内容整理＆下書き', minutes: Math.min(30, Math.round(total * 0.3)) });
+    suggestions.push({ title: cleanTitle + '・本文作成＆確認', minutes: Math.min(40, Math.round(total * 0.4)) });
+    suggestions.push({ title: cleanTitle + '・送信＆フォロー', minutes: Math.min(20, Math.round(total * 0.3)) });
+  } else if (/研修|カリキュラム|プログラム|講座/.test(title)) {
+    suggestions.push({ title: cleanTitle + '・全体構成の検討', minutes: Math.min(30, Math.round(total * 0.25)) });
+    suggestions.push({ title: cleanTitle + '・コンテンツ作成', minutes: Math.min(45, Math.round(total * 0.4)) });
+    suggestions.push({ title: cleanTitle + '・資料準備＆段取り確認', minutes: Math.min(30, Math.round(total * 0.2)) });
+    suggestions.push({ title: cleanTitle + '・最終レビュー', minutes: Math.min(20, Math.round(total * 0.15)) });
+  } else if (/打ち合わせ|会議|ミーティング|MTG/.test(title)) {
+    suggestions.push({ title: cleanTitle + '・アジェンダ＆資料準備', minutes: Math.min(30, Math.round(total * 0.3)) });
+    suggestions.push({ title: cleanTitle + '・実施', minutes: Math.min(45, Math.round(total * 0.4)) });
+    suggestions.push({ title: cleanTitle + '・議事録＆ネクストアクション整理', minutes: Math.min(30, Math.round(total * 0.3)) });
+  } else if (/リスト|一覧|整理|まとめ/.test(title)) {
+    suggestions.push({ title: cleanTitle + '・情報収集', minutes: Math.min(30, Math.round(total * 0.3)) });
+    suggestions.push({ title: cleanTitle + '・データ整理＆入力', minutes: Math.min(40, Math.round(total * 0.4)) });
+    suggestions.push({ title: cleanTitle + '・確認＆仕上げ', minutes: Math.min(25, Math.round(total * 0.3)) });
+  } else {
+    // 汎用分割
+    const parts = Math.ceil(total / 40);
+    const perPart = Math.round(total / parts);
+    const labels = ['準備＆情報整理', '作業（メイン）', '確認＆仕上げ', '見直し＆提出'];
+    for (let i = 0; i < parts && i < 4; i++) {
+      const mins = i === parts - 1 ? total - perPart * (parts - 1) : perPart;
+      suggestions.push({ title: cleanTitle + '・' + (labels[i] || `パート${i+1}`), minutes: Math.max(15, mins) });
+    }
+  }
+
+  res.json({ suggestions });
+});
+
 app.post('/api/tasks', requireLogin, async (req, res) => {
   try {
     const { title, estimated_minutes, date, priority } = req.body;

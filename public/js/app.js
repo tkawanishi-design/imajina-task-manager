@@ -6,6 +6,7 @@ function getViewDate() {
 }
 
 let addingTask = false;
+let splitConfirmed = false;
 function addTask() {
   if (addingTask) return;
   const title = document.getElementById('new-task-title').value.trim();
@@ -14,6 +15,13 @@ function addTask() {
   const priority = priorityEl ? parseInt(priorityEl.value) : 3;
   if (!title) return;
   const viewDate = getViewDate();
+
+  // 60分超えで細分化サジェスト（確認済みならスキップ）
+  if (estimated > 60 && !splitConfirmed) {
+    showSplitSuggestion(title, estimated, priority);
+    return;
+  }
+  splitConfirmed = false;
 
   addingTask = true;
   const addBtn = document.getElementById('add-task-btn');
@@ -70,6 +78,67 @@ function confirmAddTask() {
   pendingTask = null;
   document.getElementById('duplicate-modal').classList.remove('active');
   location.reload();
+}
+
+function showSplitSuggestion(title, estimated, priority) {
+  fetch('/api/tasks/suggest-split', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, estimated_minutes: estimated })
+  }).then(r => r.json()).then(data => {
+    const modal = document.getElementById('split-modal');
+    const body = document.getElementById('split-modal-body');
+    let html = `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:14px;margin-bottom:16px;">
+      <div style="font-weight:700;color:#92400e;font-size:15px;">⚠️ 見積り${estimated}分は長すぎます！</div>
+      <div style="font-size:13px;color:#a16207;margin-top:4px;">30〜45分単位に分けて登録すると、進捗が把握しやすくなります</div>
+    </div>`;
+    html += `<p style="font-weight:700;margin-bottom:10px;">💡 こんな風に分けてみては？</p>`;
+    data.suggestions.forEach((s, i) => {
+      html += `<label class="split-item" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--gray-50);border-radius:8px;margin-bottom:6px;cursor:pointer;border:1px solid var(--gray-200);">
+        <input type="checkbox" class="split-check" checked data-title="${s.title}" data-est="${s.minutes}" style="width:18px;height:18px;">
+        <span style="flex:1;font-size:14px;font-weight:500;">${s.title}</span>
+        <span style="font-size:13px;color:var(--gray-500);">${s.minutes}分</span>
+      </label>`;
+    });
+    body.innerHTML = html;
+    modal.classList.add('active');
+    // Store priority for split registration
+    modal.dataset.priority = priority;
+  });
+}
+
+function closeSplitModal() {
+  document.getElementById('split-modal').classList.remove('active');
+}
+
+function addSplitTasks() {
+  const modal = document.getElementById('split-modal');
+  const checks = modal.querySelectorAll('.split-check:checked');
+  if (checks.length === 0) { alert('1つ以上選択してください'); return; }
+  const viewDate = getViewDate();
+  const priority = parseInt(modal.dataset.priority) || 3;
+  const tasks = [];
+  checks.forEach(c => {
+    tasks.push({ title: c.dataset.title, estimated_minutes: parseInt(c.dataset.est), priority });
+  });
+  modal.classList.remove('active');
+  addingTask = true;
+  const addBtn = document.getElementById('add-task-btn');
+  if (addBtn) { addBtn.disabled = true; addBtn.textContent = '追加中...'; }
+
+  Promise.all(tasks.map(t =>
+    fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: t.title, estimated_minutes: t.estimated_minutes, date: viewDate || undefined, priority: t.priority })
+    })
+  )).then(() => location.reload()).catch(() => location.reload());
+}
+
+function skipSplitAndAdd() {
+  document.getElementById('split-modal').classList.remove('active');
+  splitConfirmed = true;
+  addTask();
 }
 
 function deleteTask(id) {

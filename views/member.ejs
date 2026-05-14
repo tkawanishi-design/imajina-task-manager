@@ -362,6 +362,21 @@
     </div>
   </div>
 
+  <!-- Split Suggestion Modal -->
+  <div class="modal-overlay" id="split-modal">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <h3>✂️ タスクを細分化しましょう</h3>
+        <button class="modal-close" onclick="closeSplitModal()">×</button>
+      </div>
+      <div class="modal-body" id="split-modal-body"></div>
+      <div class="modal-footer" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn btn-outline" onclick="skipSplitAndAdd()" style="font-size:13px;">このまま登録</button>
+        <button class="btn btn-primary" onclick="addSplitTasks()">✂️ 分けて登録</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/app.js"></script>
   <script>
