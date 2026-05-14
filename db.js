@@ -65,6 +65,13 @@ async function initDB() {
         notes TEXT DEFAULT '',
         created_at TEXT
       );
+      CREATE TABLE IF NOT EXISTS carryover_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        date TEXT NOT NULL,
+        count INTEGER DEFAULT 0,
+        created_at TEXT
+      );
     `);
 
     // Seed default users if empty
@@ -301,6 +308,20 @@ const db = {
         [userId, date, reportTime, notes || '', now()]
       );
     }
+  },
+
+  // Carryover log
+  async hasCarryoverDone(userId, date) {
+    const { rows } = await pool.query(
+      'SELECT id FROM carryover_log WHERE user_id = $1 AND date = $2', [userId, date]
+    );
+    return rows.length > 0;
+  },
+  async logCarryover(userId, date, count) {
+    await pool.query(
+      'INSERT INTO carryover_log (user_id, date, count, created_at) VALUES ($1, $2, $3, $4)',
+      [userId, date, count, now()]
+    );
   },
 
   // Duplicate detection
