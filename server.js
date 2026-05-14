@@ -344,6 +344,13 @@ app.post('/api/tasks', requireLogin, async (req, res) => {
     const { title, estimated_minutes, date, priority } = req.body;
     const user = req.session.user;
     const d = date || today();
+
+    // 同じタイトルのタスクが既にある場合は拒否（連打防止）
+    const existingTasks = await db.getTasksByUser(user.id, d);
+    if (existingTasks.some(t => t.title === title)) {
+      return res.json({ ok: false, error: 'duplicate_title' });
+    }
+
     const category = autoCategory(title);
     const ai_suggestion = generateSuggestion(title, estimated_minutes);
     const dupes = await db.findDuplicates(title, d, user.id);

@@ -5,7 +5,9 @@ function getViewDate() {
   return params.get('date') || '';
 }
 
+let addingTask = false;
 function addTask() {
+  if (addingTask) return;
   const title = document.getElementById('new-task-title').value.trim();
   const estimated = parseInt(document.getElementById('new-task-time').value) || 0;
   const priorityEl = document.getElementById('new-task-priority');
@@ -13,17 +15,32 @@ function addTask() {
   if (!title) return;
   const viewDate = getViewDate();
 
+  addingTask = true;
+  const addBtn = document.getElementById('add-task-btn');
+  if (addBtn) { addBtn.disabled = true; addBtn.textContent = '追加中...'; }
+
   fetch('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, estimated_minutes: estimated, date: viewDate || undefined, priority })
   }).then(r => r.json()).then(data => {
+    if (data.error === 'duplicate_title') {
+      addingTask = false;
+      if (addBtn) { addBtn.disabled = false; addBtn.textContent = '追加'; }
+      alert('同じタスクが既に登録されています');
+      return;
+    }
     if (data.duplicates && data.duplicates.length > 0) {
+      addingTask = false;
+      if (addBtn) { addBtn.disabled = false; addBtn.textContent = '追加'; }
       pendingTask = data.task;
       showDuplicateWarning(data.duplicates, data.task);
     } else {
       location.reload();
     }
+  }).catch(() => {
+    addingTask = false;
+    if (addBtn) { addBtn.disabled = false; addBtn.textContent = '追加'; }
   });
 }
 
