@@ -12,12 +12,12 @@
     <div class="header-right">
       <span class="phase-badge"><%= phase.label %></span>
       <% if (phase.remainToDeadline > 0) { %>
-        <span style="font-size:11px;color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;line-height:1.4;">
+        <span class="time-badge" style="font-size:11px;color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;line-height:1.4;">
           18時まで <strong><%= Math.floor(phase.remainToDeadline / 60) %>h<%= phase.remainToDeadline % 60 %>m</strong>
           ｜20時まで <strong><%= Math.floor(phase.remainToFinal / 60) %>h<%= phase.remainToFinal % 60 %>m</strong>
         </span>
       <% } else if (phase.remainToFinal > 0) { %>
-        <span style="font-size:11px;color:#fca5a5;background:rgba(255,0,0,0.2);padding:4px 10px;border-radius:12px;font-weight:700;">
+        <span class="time-badge" style="font-size:11px;color:#fca5a5;background:rgba(255,0,0,0.2);padding:4px 10px;border-radius:12px;font-weight:700;">
           🔴 残業中｜20時まで <strong><%= Math.floor(phase.remainToFinal / 60) %>h<%= phase.remainToFinal % 60 %>m</strong>
         </span>
       <% } %>
