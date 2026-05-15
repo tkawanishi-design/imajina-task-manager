@@ -210,7 +210,7 @@ const db = {
   // Tasks
   async getTasksByUser(userId, date) {
     const { rows } = await pool.query(
-      'SELECT * FROM tasks WHERE user_id = $1 AND date = $2 ORDER BY sort_order, priority',
+      `SELECT * FROM tasks WHERE user_id = $1 AND date = $2 ORDER BY (CASE WHEN status = 'completed' THEN 1 ELSE 0 END), sort_order, priority`,
       [userId, date]
     );
     return rows;

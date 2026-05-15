@@ -154,6 +154,44 @@ function updateTask(id, data) {
   });
 }
 
+function moveCompletedToBottom(taskItem, isCompleted) {
+  const taskList = document.getElementById('task-list');
+  if (!taskList) return;
+  if (isCompleted) {
+    // Add completed class and animate to bottom
+    taskItem.classList.add('completed');
+    taskItem.style.transition = 'opacity 0.3s, transform 0.3s';
+    taskItem.style.opacity = '0.5';
+    taskItem.style.transform = 'translateX(10px)';
+    setTimeout(() => {
+      taskList.appendChild(taskItem);
+      taskItem.style.opacity = '';
+      taskItem.style.transform = '';
+      renumberTasks();
+    }, 300);
+  } else {
+    // Uncompleted: move back above completed tasks
+    taskItem.classList.remove('completed');
+    const firstCompleted = taskList.querySelector('.task-item.completed');
+    if (firstCompleted) {
+      taskList.insertBefore(taskItem, firstCompleted);
+    }
+    renumberTasks();
+  }
+}
+
+function renumberTasks() {
+  const taskList = document.getElementById('task-list');
+  if (!taskList) return;
+  taskList.querySelectorAll('.task-item').forEach((item, i) => {
+    const titleEl = item.querySelector('.task-title');
+    if (titleEl) {
+      const text = titleEl.textContent.replace(/^\d+\.\s*/, '');
+      titleEl.textContent = (i + 1) + '. ' + text;
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.progress-slider').forEach(slider => {
     slider.addEventListener('input', function() {
@@ -165,6 +203,15 @@ document.addEventListener('DOMContentLoaded', function() {
       const progress = parseInt(this.value);
       const status = progress === 100 ? 'completed' : progress > 0 ? 'in_progress' : 'pending';
       updateTask(id, { progress, status });
+      // Move completed tasks to bottom
+      const taskItem = this.closest('.task-item');
+      if (taskItem) {
+        if (progress === 100) {
+          moveCompletedToBottom(taskItem, true);
+        } else if (taskItem.classList.contains('completed')) {
+          moveCompletedToBottom(taskItem, false);
+        }
+      }
     });
   });
 
@@ -186,6 +233,20 @@ document.addEventListener('DOMContentLoaded', function() {
       const data = { status };
       if (status === 'completed') data.progress = 100;
       updateTask(this.dataset.id, data);
+      // Move completed tasks to bottom
+      const taskItem = this.closest('.task-item');
+      if (taskItem) {
+        if (status === 'completed') {
+          // Also update the slider to 100%
+          const slider = taskItem.querySelector('.progress-slider');
+          const valSpan = taskItem.querySelector('.progress-val');
+          if (slider) slider.value = 100;
+          if (valSpan) valSpan.textContent = '100%';
+          moveCompletedToBottom(taskItem, true);
+        } else if (taskItem.classList.contains('completed')) {
+          moveCompletedToBottom(taskItem, false);
+        }
+      }
     });
   });
 
