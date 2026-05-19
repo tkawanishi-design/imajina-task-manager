@@ -27,6 +27,14 @@ app.use((req, res, next) => {
     const initial = user.name.charAt(0);
     return `<div class="avatar ${size}">${initial}</div>`;
   };
+  res.locals.fmtMin = function(min) {
+    if (!min || min <= 0) return '0m';
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    if (h === 0) return m + 'm';
+    if (m === 0) return h + 'h';
+    return h + 'h' + m + 'm';
+  };
   next();
 });
 app.use(express.json());

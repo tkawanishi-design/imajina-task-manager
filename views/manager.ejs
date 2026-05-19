@@ -165,8 +165,8 @@
                 </div>
                 <div class="member-stats">
                   <span><%= mt.tasks.length %>タスク</span>
-                  <span>見積<%= mt.totalEst %>分</span>
-                  <span>実績<%= mt.totalActual %>分</span>
+                  <span>見積<%= fmtMin(mt.totalEst) %></span>
+                  <span>実績<%= fmtMin(mt.totalActual) %></span>
                   <span style="font-size:12px;color:var(--gray-400);">▼</span>
                 </div>
               </div>
@@ -184,8 +184,8 @@
                       <span class="task-category"><%= task.category %></span>
                     </div>
                     <div class="task-meta">
-                      <span>見積: <%= task.estimated_minutes %>分</span>
-                      <span>実績: <%= task.actual_minutes %>分</span>
+                      <span>見積: <%= fmtMin(task.estimated_minutes) %></span>
+                      <span>実績: <%= fmtMin(task.actual_minutes) %></span>
                       <span>
                         <% if (task.status === 'completed') { %>
                           <span style="color:var(--success);font-weight:600;">✓ 完了</span>
@@ -203,7 +203,7 @@
                     </div>
                     <div class="progress-label" style="color:<%= task.progress < 30 ? 'var(--danger)' : task.progress < 70 ? 'var(--warning)' : 'var(--success)' %>"><%= task.progress %>%</div>
                     <% if (task.actual_minutes > task.estimated_minutes) { %>
-                      <div style="font-size:12px;color:var(--danger);margin-top:4px;">⚠ 見積超過: +<%= task.actual_minutes - task.estimated_minutes %>分</div>
+                      <div style="font-size:12px;color:var(--danger);margin-top:4px;">⚠ 見積超過: +<%= fmtMin(task.actual_minutes - task.estimated_minutes) %></div>
                     <% } %>
                     <div class="comments-section" style="margin-top:8px;">
                       <button class="btn btn-sm btn-outline" onclick="toggleManagerComments(<%= task.id %>, this)">💬 コメント</button>
