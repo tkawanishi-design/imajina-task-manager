@@ -532,7 +532,7 @@ app.post('/api/chameleon-chat', requireLogin, async (req, res) => {
     }
 
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const systemPrompt = `あなたは「カメレオン」という名前のタスク管理アシスタントです。
 株式会社イマジナのタスク管理システムに組み込まれています。
