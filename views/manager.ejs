@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>マネージャーダッシュボード - imajina Task Manager</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -45,34 +46,68 @@
     </div>
 
     <!-- Alerts -->
+    <%
+      const criticalAlerts = alerts.filter(a => a.type === 'time-danger' || a.type === 'time-warn' || a.type === 'delay');
+      const otherAlerts = alerts.filter(a => a.type !== 'time-danger' && a.type !== 'time-warn' && a.type !== 'delay');
+    %>
     <% if (alerts.length > 0) { %>
     <div class="alert-panel" id="alert-panel">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <h3 style="font-size:15px;color:var(--gray-700);">Alerts (<span id="alert-count"><%= alerts.length %></span>件)</h3>
-        <button class="btn btn-sm btn-outline" onclick="dismissAllAlerts()" style="font-size:11px;">すべて確認済みにする</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <h3 style="font-size:14px;color:var(--gray-700);">Alerts <span style="font-size:12px;color:var(--gray-400);font-weight:400;"><span id="alert-count"><%= alerts.length %></span>件</span></h3>
+        <div style="display:flex;gap:8px;">
+          <% if (alerts.length > 3) { %>
+          <button class="btn btn-sm btn-outline" id="alert-toggle-btn" onclick="toggleAllAlerts()" style="font-size:11px;">すべて表示</button>
+          <% } %>
+          <button class="btn btn-sm btn-outline" onclick="dismissAllAlerts()" style="font-size:11px;">すべて確認済み</button>
+        </div>
       </div>
-      <% alerts.forEach((a, ai) => { %>
-        <div class="alert-item <%= a.type %>" id="alert-item-<%= ai %>" data-alert-key="<%= a.type %>-<%= a.userId %>-<%= selectedDate %>" style="cursor:pointer;flex-wrap:wrap;" onclick="toggleAlertReply(<%= ai %>)">
-          <span class="alert-icon">
-            <%= a.type === 'delay' ? '!' : a.type === 'warning' ? '!!' : a.type === 'time-danger' ? '!!!' : a.type === 'time-warn' ? '!!' : '?' %>
-          </span>
-          <span style="flex:1;"><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
-          <span style="font-size:12px;opacity:0.6;margin-left:8px;">Reply</span>
-          <button class="alert-dismiss-btn" onclick="event.stopPropagation();dismissAlert(<%= ai %>)" title="確認済み">✕</button>
-          <div class="alert-reply" id="alert-reply-<%= ai %>" style="display:none;width:100%;margin-top:8px;" onclick="event.stopPropagation()">
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="text" class="alert-reply-input" id="alert-input-<%= ai %>" placeholder="<%= a.userName %>さんにコメント..." style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--gray-300);font-size:13px;">
-              <button class="btn btn-sm btn-primary" onclick="sendAlertComment(<%= ai %>, <%= a.taskId %>, '<%= a.userName %>')">送信</button>
-            </div>
-            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '早めに進めてください！')">早めに進めて</button>
-              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '優先的に対応をお願いします')">優先対応して</button>
-              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '今日は外して明日に回してOKです')">明日に回してOK</button>
-              <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '困ってたら相談してね')">相談してね</button>
+      <% if (criticalAlerts.length > 0) { %>
+      <div style="margin-bottom:6px;">
+        <% criticalAlerts.forEach((a, ci) => { const ai = alerts.indexOf(a); %>
+          <div class="alert-item <%= a.type %>" id="alert-item-<%= ai %>" data-alert-key="<%= a.type %>-<%= a.userId %>-<%= selectedDate %>" style="cursor:pointer;flex-wrap:wrap;padding:8px 12px;margin-bottom:4px;font-size:13px;" onclick="toggleAlertReply(<%= ai %>)">
+            <span class="alert-icon"><%= a.type === 'time-danger' ? '!!!' : '!!' %></span>
+            <span style="flex:1;"><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
+            <button class="alert-dismiss-btn" onclick="event.stopPropagation();dismissAlert(<%= ai %>)" title="確認済み">&#10005;</button>
+            <div class="alert-reply" id="alert-reply-<%= ai %>" style="display:none;width:100%;margin-top:8px;" onclick="event.stopPropagation()">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" class="alert-reply-input" id="alert-input-<%= ai %>" placeholder="<%= a.userName %>さんにコメント..." style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--gray-300);font-size:13px;">
+                <button class="btn btn-sm btn-primary" onclick="sendAlertComment(<%= ai %>, <%= a.taskId %>, '<%= a.userName %>')">送信</button>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '優先的に対応をお願いします')">優先対応して</button>
+                <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '今日は外して明日に回してOKです')">明日に回してOK</button>
+                <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '困ってたら相談してね')">相談してね</button>
+              </div>
             </div>
           </div>
-        </div>
-      <% }) %>
+        <% }) %>
+      </div>
+      <% } %>
+      <div id="other-alerts" style="<%= otherAlerts.length > 0 && alerts.length > 3 ? 'display:none;' : '' %>">
+        <% otherAlerts.forEach((a, oi) => { const ai = alerts.indexOf(a); %>
+          <div class="alert-item <%= a.type %>" id="alert-item-<%= ai %>" data-alert-key="<%= a.type %>-<%= a.userId %>-<%= selectedDate %>" style="cursor:pointer;flex-wrap:wrap;padding:8px 12px;margin-bottom:4px;font-size:13px;" onclick="toggleAlertReply(<%= ai %>)">
+            <span class="alert-icon">!!</span>
+            <span style="flex:1;"><strong>[<%= a.teamName %>]</strong> <%= a.message %></span>
+            <button class="alert-dismiss-btn" onclick="event.stopPropagation();dismissAlert(<%= ai %>)" title="確認済み">&#10005;</button>
+            <div class="alert-reply" id="alert-reply-<%= ai %>" style="display:none;width:100%;margin-top:8px;" onclick="event.stopPropagation()">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" class="alert-reply-input" id="alert-input-<%= ai %>" placeholder="<%= a.userName %>さんにコメント..." style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--gray-300);font-size:13px;">
+                <button class="btn btn-sm btn-primary" onclick="sendAlertComment(<%= ai %>, <%= a.taskId %>, '<%= a.userName %>')">送信</button>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '優先的に対応をお願いします')">優先対応して</button>
+                <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '今日は外して明日に回してOKです')">明日に回してOK</button>
+                <button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="quickFill(<%= ai %>, '困ってたら相談してね')">相談してね</button>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+      <% if (otherAlerts.length > 0 && alerts.length > 3) { %>
+      <div id="alert-summary" style="text-align:center;padding:8px;font-size:12px;color:var(--gray-400);cursor:pointer;" onclick="toggleAllAlerts()">
+        + 他 <%= otherAlerts.length %>件のアラート
+      </div>
+      <% } %>
     </div>
     <% } %>
 
@@ -340,6 +375,21 @@
       el.style.marginBottom = '0';
       el.style.overflow = 'hidden';
       setTimeout(() => { el.remove(); updateAlertCount(); }, 300);
+    }
+    function toggleAllAlerts() {
+      const other = document.getElementById('other-alerts');
+      const summary = document.getElementById('alert-summary');
+      const btn = document.getElementById('alert-toggle-btn');
+      if (!other) return;
+      if (other.style.display === 'none') {
+        other.style.display = '';
+        if (summary) summary.style.display = 'none';
+        if (btn) btn.textContent = '折りたたむ';
+      } else {
+        other.style.display = 'none';
+        if (summary) summary.style.display = '';
+        if (btn) btn.textContent = 'すべて表示';
+      }
     }
     function dismissAllAlerts() {
       const dismissed = getDismissedAlerts();
