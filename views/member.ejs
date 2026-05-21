@@ -274,7 +274,7 @@
                   <%- avatarHtml(m, 'sm') %>
                   <span style="font-weight:600;"><%= m.name %></span>
                 </div>
-                <span style="font-size:13px;color:var(--gray-500);"><%= m.id === myTeam.leader_id ? '👑 リーダー' : 'メンバー' %></span>
+                <span style="font-size:13px;color:var(--gray-500);"><%= m.id === myTeam.leader_id ? 'Leader' : 'Member' %></span>
               </div>
             <% }) %>
           </div>

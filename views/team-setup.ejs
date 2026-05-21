@@ -68,7 +68,7 @@
                 <div class="user-chip <%= isAssigned ? 'disabled' : '' %>" data-id="<%= u.id %>" <%- isAssigned ? '' : 'onclick="selectLeader(this)"' %>>
                   <%- avatarHtml(u, 'sm') %>
                   <%= u.name %>
-                  <% if (u.role === 'leader') { %><span style="font-size:10px;">👑</span><% } %>
+                  <% if (u.role === 'leader') { %><span style="font-size:9px;background:var(--gray-700);color:white;padding:1px 5px;border-radius:3px;font-weight:600;">L</span><% } %>
                   <% if (isAssigned) { %><span style="font-size:10px;color:var(--gray-400);">配属済</span><% } %>
                 </div>
               <% }) %>

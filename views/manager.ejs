@@ -128,11 +128,11 @@
         <div class="team-card-header">
           <h3><%= td.team.name %>
             <span style="font-size:14px;font-weight:700;margin-left:12px;color:<%= teamAvgProgress >= 80 ? '#22c55e' : teamAvgProgress >= 40 ? '#f59e0b' : '#ef4444' %>;">
-              📊 <%= teamAvgProgress %>%
+              <span style="font-size:11px;letter-spacing:1px;opacity:0.8;">PROGRESS</span> <%= teamAvgProgress %>%
             </span>
           </h3>
           <div style="display:flex;gap:12px;align-items:center;">
-            <span class="team-leader-badge">👑 <%= td.leader ? td.leader.name : '未設定' %></span>
+            <span class="team-leader-badge"><%= td.leader ? td.leader.name : '未設定' %></span>
             <span style="font-size:13px;opacity:0.8;"><%= td.memberTasks.length %>名</span>
             <span style="font-size:13px;opacity:0.8;">完了 <%= teamCompletedTasks %>/<%= teamTotalTasks %></span>
           </div>
@@ -151,7 +151,7 @@
                     <%- avatarHtml(mt.user, 'sm') %>
                     <span class="member-name">
                       <%= mt.user.name %>
-                      <% if (mt.user.id === td.team.leader_id) { %><span style="font-size:12px;">👑</span><% } %>
+                      <% if (mt.user.id === td.team.leader_id) { %><span style="font-size:10px;background:var(--gray-700);color:white;padding:1px 6px;border-radius:4px;font-weight:600;letter-spacing:0.5px;">L</span><% } %>
                     </span>
                   </div>
                   <div class="member-progress-inline">
