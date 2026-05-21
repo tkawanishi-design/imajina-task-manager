@@ -9,8 +9,12 @@
 <body>
   <div class="login-container">
     <div class="login-card">
-      <h1>imajina Task Manager</h1>
-      <p class="subtitle">チームタスク管理システム</p>
+      <img src="/img/imajina_logo_K90.png" alt="imajina" class="login-logo">
+      <h1>Task Manager</h1>
+      <p class="subtitle">
+        ここから先がおもしろい。今日も自分をアップデートしよう。
+        <span class="tagline">- チームタスク管理システム -</span>
+      </p>
       <% if (error) { %>
         <div class="login-error"><%= error %></div>
       <% } %>
@@ -23,10 +27,10 @@
           <label>パスワード</label>
           <input type="password" name="password" required placeholder="パスワード">
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:16px;margin-top:8px;">ログイン</button>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:14px;margin-top:8px;letter-spacing:1px;">ログイン</button>
       </form>
       <div style="text-align:center;margin-top:16px;">
-        <a href="/manual" style="color:var(--primary);font-size:13px;text-decoration:none;">📖 使い方マニュアルを見る</a>
+        <a href="/manual" style="color:var(--gray-400);font-size:12px;text-decoration:none;letter-spacing:0.5px;">使い方マニュアル</a>
       </div>
     </div>
   </div>

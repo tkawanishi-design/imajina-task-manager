@@ -6,6 +6,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const db = require('./db');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Avatar: use memory storage, convert to base64 for DB
 const uploadAvatar = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
@@ -92,21 +93,21 @@ function generateSuggestion(title, estimatedMinutes) {
   // --- Task decomposition suggestions ---
   const multiParts = t.split(/[・、,\/＋\+]/).filter(p => p.trim().length >= 2);
   if (multiParts.length >= 3) {
-    suggestions.push('📋 細分化の提案: このタスクは複数の作業を含んでいそうです。分けて登録すると進捗が見えやすくなります → ' + multiParts.map((p, i) => `「${p.trim()}」`).join(' / '));
+    suggestions.push('細分化の提案: このタスクは複数の作業を含んでいそうです。分けて登録すると進捗が見えやすくなります → ' + multiParts.map((p, i) => `「${p.trim()}」`).join(' / '));
   } else if (multiParts.length === 2 && (estimatedMinutes || 0) >= 60) {
-    suggestions.push('📋 細分化の提案: 60分以上のタスクは分割すると管理しやすいです → ' + multiParts.map(p => `「${p.trim()}」`).join(' と ') + ' に分けてみては？');
+    suggestions.push('細分化の提案: 60分以上のタスクは分割すると管理しやすいです → ' + multiParts.map(p => `「${p.trim()}」`).join(' と ') + ' に分けてみては？');
   }
 
   // Long estimated time warning
   if ((estimatedMinutes || 0) >= 120) {
-    suggestions.push('⏰ 見積が2時間以上あります。30〜60分単位のサブタスクに分けると、進捗が見えて集中しやすくなります。');
+    suggestions.push('見積が2時間以上あります。30〜60分単位のサブタスクに分けると、進捗が見えて集中しやすくなります。');
   } else if ((estimatedMinutes || 0) >= 60 && multiParts.length < 2) {
-    suggestions.push('⏰ 1時間以上のタスクです。「調査→下書き→仕上げ」のようにステップを意識すると進めやすいです。');
+    suggestions.push('1時間以上のタスクです。「調査→下書き→仕上げ」のようにステップを意識すると進めやすいです。');
   }
 
   // Vague task detection
   if (/^.{1,4}$/.test(t.trim()) || /^(対応|作業|確認|準備|整理|その他|タスク|業務)$/.test(t.trim())) {
-    suggestions.push('💡 タスク名がざっくりしています。「誰に・何を・どこまで」を入れると作業イメージが明確になります。例: 「○○さま 提案書 初稿作成」');
+    suggestions.push('タスク名がざっくりしています。「誰に・何を・どこまで」を入れると作業イメージが明確になります。例: 「○○さま 提案書 初稿作成」');
   }
 
   // --- Work tips ---
@@ -215,7 +216,7 @@ app.get('/member', requireLogin, async (req, res) => {
                 t.title,
                 t.category,
                 t.estimated_minutes,
-                '📋 前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : '')
+                '前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : '')
               );
               carryOverCount++;
             }
@@ -511,6 +512,49 @@ app.post('/api/users/:id/avatar', requireLogin, uploadAvatar.single('avatar'), a
     }
     res.json({ ok: true, avatar: dataUrl });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// ============ CHAMELEON CHAT (Gemini AI) ============
+app.post('/api/chameleon-chat', requireLogin, async (req, res) => {
+  try {
+    const { message } = req.body;
+    const user = req.session.user;
+    const d = today();
+    const tasks = await db.getTasksByUser(user.id, d);
+
+    const taskSummary = tasks.map((t, i) =>
+      `${i+1}. ${t.title} (見積:${t.estimated_minutes}分, 実績:${t.actual_minutes}分, 進捗:${t.progress}%, 状態:${t.status})`
+    ).join('\n');
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return res.json({ reply: 'AI機能は現在設定中です。管理者にGemini APIキーの設定を依頼してください。' });
+    }
+
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const systemPrompt = `あなたは「カメレオン」という名前のタスク管理アシスタントです。
+株式会社イマジナのタスク管理システムに組み込まれています。
+ユーザーのタスクの分解・優先順位付け・時間配分についてアドバイスしてください。
+
+【ルール】
+- 簡潔で実践的なアドバイスをする（3-5行程度）
+- タスクの具体的な分解案を提示する
+- 時間の使い方のコツを教える
+- 明るくプロフェッショナルな口調
+- 「カメレオン」としてフレンドリーに応答
+
+【${user.name}さんの今日のタスク】
+${taskSummary || 'タスクはまだ登録されていません'}`;
+
+    const result = await model.generateContent(systemPrompt + '\n\nユーザーの質問: ' + message);
+    const reply = result.response.text();
+    res.json({ reply });
+  } catch (e) {
+    console.error('Chameleon chat error:', e.message);
+    res.json({ reply: '申し訳ありません、一時的にエラーが発生しました。もう一度お試しください。' });
+  }
 });
 
 io.on('connection', (socket) => {
