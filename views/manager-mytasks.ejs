@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>マイタスク - <%= user.name %> (マネージャー)</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+</head>
+<body>
+  <div class="header">
+    <img src="/img/imajina_logo_K0.png" alt="imajina" class="header-logo">
+    <div class="header-right">
+      <span class="phase-badge"><%= phase.label %></span>
+      <% if (phase.remainToDeadline > 0) { %>
+        <span class="time-badge" style="font-size:11px;color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:12px;line-height:1.4;">
+          18時まで <strong><%= Math.floor(phase.remainToDeadline / 60) %>h<%= phase.remainToDeadline % 60 %>m</strong>
+          ｜20時まで <strong><%= Math.floor(phase.remainToFinal / 60) %>h<%= phase.remainToFinal % 60 %>m</strong>
+        </span>
+      <% } else if (phase.remainToFinal > 0) { %>
+        <span class="time-badge" style="font-size:11px;color:#fca5a5;background:rgba(255,0,0,0.2);padding:4px 10px;border-radius:12px;font-weight:700;">
+          残業中｜20時まで <strong><%= Math.floor(phase.remainToFinal / 60) %>h<%= phase.remainToFinal % 60 %>m</strong>
+        </span>
+      <% } %>
+      <a href="/team-setup?date=<%= selectedDate %>" class="btn-logout" style="background:rgba(255,255,255,0.25);">チーム編成</a>
+      <div class="header-user">
+        <label class="avatar-upload">
+          <%- avatarHtml(user, 'sm') %>
+          <input type="file" accept="image/*" onchange="uploadAvatar(this, <%= user.id %>)">
+          <div class="avatar-overlay">変更</div>
+        </label>
+        <span class="user-name"><%= user.name %> (マネージャー)</span>
+      </div>
+      <a href="/logout" class="btn-logout">ログアウト</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <%- include('partials/manager-tabs', { activeTab: 'mytasks', selectedDate: selectedDate }) %>
+
+    <!-- Date Navigation -->
+    <%
+      const todayStr = today;
+      const viewDate = new Date(todayStr);
+      const prevDate = new Date(viewDate); prevDate.setDate(prevDate.getDate() - 1);
+      const nextDate = new Date(viewDate); nextDate.setDate(nextDate.getDate() + 1);
+      const fmt = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      const prevStr = fmt(prevDate);
+      const nextStr = fmt(nextDate);
+      const now = new Date();
+      const jstNow = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+      const realToday = fmt(jstNow);
+      const isToday = todayStr === realToday;
+      const isFuture = todayStr > realToday;
+      const dayNames = ['日','月','火','水','木','金','土'];
+      const viewDow = dayNames[viewDate.getDay()];
+    %>
+    <div class="date-nav">
+      <a href="/manager?tab=mytasks&date=<%= prevStr %>" class="date-nav-btn">◀ 前日</a>
+      <div class="date-nav-center">
+        <span class="date-nav-date"><%= todayStr %> (<%= viewDow %>)</span>
+        <% if (isToday) { %>
+          <span class="date-nav-badge today">今日</span>
+        <% } else if (isFuture) { %>
+          <span class="date-nav-badge future">予定</span>
+        <% } else { %>
+          <span class="date-nav-badge past">過去</span>
+        <% } %>
+      </div>
+      <a href="/manager?tab=mytasks&date=<%= nextStr %>" class="date-nav-btn">翌日 ▶</a>
+    </div>
+
+    <!-- Carry-over notification -->
+    <% if (carryOverCount > 0) { %>
+      <div style="background:var(--gray-50);border:1px solid var(--gray-300);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:18px;color:var(--gray-500);">&#8635;</span>
+        <div>
+          <div style="font-weight:700;color:var(--gray-700);font-size:15px;">前日の未完了タスクを <%= carryOverCount %>件 繰り越しました</div>
+          <div style="font-size:12px;color:var(--gray-400);margin-top:2px;">不要なタスクは x で削除できます</div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Time Alert -->
+    <%
+      const remainEst = tasks.filter(t => t.status !== 'completed').reduce((s, t) => s + Math.max(0, t.estimated_minutes - t.actual_minutes), 0);
+      const overFinal = phase.remainToFinal > 0 && remainEst > phase.remainToFinal && tasks.length > 0;
+      const overDeadline = phase.remainToDeadline > 0 && remainEst > phase.remainToDeadline && tasks.length > 0;
+    %>
+    <% if (isToday && overFinal) { %>
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:18px;color:#dc2626;font-weight:700;">!</span>
+        <div>
+          <div style="font-weight:700;color:#dc2626;font-size:16px;">20時の最終退勤でも終わりません！</div>
+          <div style="font-size:13px;color:#7f1d1d;margin-top:4px;">
+            残りタスク推定: <strong><%= fmtMin(remainEst) %></strong> ／ 20時まで: <strong><%= fmtMin(phase.remainToFinal) %></strong>
+            （超過: <%= fmtMin(remainEst - phase.remainToFinal) %>）→ 優先順位の見直しやヘルプを検討してください
+          </div>
+        </div>
+      </div>
+    <% } else if (isToday && overDeadline) { %>
+      <div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:16px;color:#d97706;font-weight:700;">!!</span>
+        <div>
+          <div style="font-weight:700;color:#854d0e;font-size:16px;">18時の定時内には終わらない可能性があります</div>
+          <div style="font-size:13px;color:#854d0e;margin-top:4px;">
+            残りタスク推定: <strong><%= fmtMin(remainEst) %></strong> ／ 18時まで: <strong><%= fmtMin(phase.remainToDeadline) %></strong>
+            （超過: <%= fmtMin(remainEst - phase.remainToDeadline) %>）
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Stats -->
+    <% const completedCount = tasks.filter(t => t.status === 'completed').length; %>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value"><%= tasks.length %></div>
+        <div class="stat-label">タスク数</div>
+      </div>
+      <div class="stat-card <%= overallProgress < 30 && phase.phase >= 3 ? 'danger' : overallProgress < 60 ? 'warning' : 'success' %>">
+        <div class="stat-value"><%= overallProgress %>%</div>
+        <div class="stat-label">全体進捗</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= fmtMin(totalEst) %></div>
+        <div class="stat-label">見積合計</div>
+      </div>
+      <div class="stat-card <%= totalActual > totalEst ? 'danger' : '' %>">
+        <div class="stat-value"><%= fmtMin(totalActual) %></div>
+        <div class="stat-label">実績合計</div>
+      </div>
+    </div>
+
+    <!-- Overall Progress Bar -->
+    <%
+      let motivationMsg = '';
+      if (isFuture) {
+        if (tasks.length === 0) { motivationMsg = '明日のタスクを今のうちに準備しよう'; }
+        else { motivationMsg = tasks.length + '件のタスクを準備済み。明日もいい1日に'; }
+      } else if (tasks.length === 0) { motivationMsg = 'タスクを登録して今日をデザインしよう'; }
+      else if (overallProgress === 100) { motivationMsg = 'All tasks completed. おつかれさまでした'; }
+      else if (overallProgress >= 80) { motivationMsg = 'ラストスパート。ゴールはすぐそこ'; }
+      else if (overallProgress >= 50) { motivationMsg = '折り返し地点を通過。この調子で'; }
+      else if (overallProgress >= 25) { motivationMsg = 'いいペース。自分のリズムで進めよう'; }
+      else if (overallProgress > 0) { motivationMsg = 'スタートダッシュ。この調子で進めよう'; }
+      else { motivationMsg = '今日も自分をアップデートしよう'; }
+    %>
+    <div class="member-overall-progress">
+      <div class="member-overall-header">
+        <span><%= isToday ? '今日の進捗' : todayStr + 'の進捗' %></span>
+        <span style="font-weight:700;color:<%= overallProgress >= 80 ? 'var(--success)' : overallProgress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
+          <%= overallProgress %>% <span style="font-weight:400;font-size:13px;color:var(--gray-500);">（完了 <%= completedCount %>/<%= tasks.length %>）</span>
+        </span>
+      </div>
+      <div class="progress-bar-wrap" style="height:16px;border-radius:8px;">
+        <div class="progress-bar-fill <%= overallProgress < 30 ? 'low' : overallProgress < 70 ? 'mid' : 'high' %>" style="width:<%= overallProgress %>%;border-radius:8px;"></div>
+      </div>
+      <div class="motivation-message"><%= motivationMsg %></div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Left: Task List -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h2><%= isToday ? '本日' : isFuture ? '予定' : '' %>のタスク (<%= today %>)</h2>
+          </div>
+          <div class="card-body" id="task-list">
+            <% if (tasks.length === 0) { %>
+              <p style="text-align:center;color:var(--gray-400);padding:40px 0;">タスクを追加してください</p>
+            <% } %>
+            <% tasks.forEach((task, i) => { %>
+              <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %> <%= task.status === 'in_progress' ? 'in-progress' : '' %> priority-<%= task.priority || 3 %>" data-id="<%= task.id %>">
+                <div class="task-top">
+                  <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+                  <% if ((task.priority || 3) === 1) { %>
+                    <span class="priority-badge p1">必須</span>
+                  <% } else if ((task.priority || 3) === 2) { %>
+                    <span class="priority-badge p2">重要</span>
+                  <% } %>
+                  <span class="task-title task-title-editable" onclick="editTitle(this, <%= task.id %>)" title="クリックして編集"><%= i + 1 %>. <%= task.title %></span>
+                  <span class="task-category"><%= task.category %></span>
+                </div>
+                <div class="task-meta">
+                  <span>見積: <input type="number" class="est-input" value="<%= task.estimated_minutes %>" min="0" step="5" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
+                  <span>実績: <input type="number" class="actual-input" value="<%= task.actual_minutes %>" min="0" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
+                  <span>
+                    <select class="status-select" data-id="<%= task.id %>" style="padding:2px 6px;font-size:12px;border-radius:4px;">
+                      <option value="pending" <%= task.status === 'pending' ? 'selected' : '' %>>未着手</option>
+                      <option value="in_progress" <%= task.status === 'in_progress' ? 'selected' : '' %>>作業中</option>
+                      <option value="completed" <%= task.status === 'completed' ? 'selected' : '' %>>完了</option>
+                      <option value="blocked" <%= task.status === 'blocked' ? 'selected' : '' %>>ブロック</option>
+                    </select>
+                  </span>
+                </div>
+                <div class="task-actions">
+                  <div class="task-progress-inline">
+                    <input type="range" min="0" max="100" step="5" value="<%= task.progress %>" class="progress-slider" data-id="<%= task.id %>">
+                    <span class="progress-val"><%= task.progress %>%</span>
+                  </div>
+                  <button class="btn btn-sm btn-outline" onclick="toggleComments(<%= task.id %>)">Chat</button>
+                  <button class="btn btn-sm btn-danger btn-icon" onclick="deleteTask(<%= task.id %>)">×</button>
+                </div>
+                <% if (task.ai_suggestion) { %>
+                  <div class="ai-suggestion"><%= task.ai_suggestion %></div>
+                <% } %>
+                <div class="comments-section" id="comments-<%= task.id %>" style="display:none;">
+                  <div class="comments-list" id="comments-list-<%= task.id %>"></div>
+                  <div class="comment-input">
+                    <input type="text" placeholder="コメント or 質問を入力..." id="comment-text-<%= task.id %>">
+                    <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;">
+                      <input type="checkbox" id="is-question-<%= task.id %>"> 質問
+                    </label>
+                    <button class="btn btn-sm btn-primary" onclick="addComment(<%= task.id %>)">送信</button>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+          <div class="task-add-form">
+            <div class="form-group">
+              <input type="text" id="new-task-title" placeholder="新しいタスクを入力...（例: 赤尾さま 採用ページ更新）">
+            </div>
+            <div class="form-group time-input">
+              <input type="number" id="new-task-time" placeholder="分" min="0" step="5">
+            </div>
+            <div class="form-group">
+              <select id="new-task-priority" class="priority-select">
+                <option value="3">通常</option>
+                <option value="2">重要</option>
+                <option value="1">必須</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" id="add-task-btn" onclick="addTask()">追加</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Report Timeline -->
+      <div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><h2>報告タイムライン</h2></div>
+          <div class="card-body">
+            <div class="timeline">
+              <% const times = [{t:'10:00', l:'タスク登録・確認', p:1},{t:'13:00', l:'中間報告', p:2},{t:'15:00', l:'進捗確認・溢れチェック', p:3},{t:'18:00', l:'最終追い込み', p:4},{t:'20:00', l:'退勤目標', p:5}]; %>
+              <% times.forEach(item => { %>
+                <% const reported = reports.find(r => r.report_time === item.t); %>
+                <div class="timeline-item">
+                  <div class="timeline-dot <%= reported ? 'done' : phase.phase >= item.p ? 'active' : '' %>"></div>
+                  <div class="timeline-content">
+                    <div class="timeline-time"><%= item.t %> - <%= item.l %></div>
+                    <% if (phase.phase >= item.p && !reported && item.t !== '20:00') { %>
+                      <button class="btn btn-sm btn-success" style="margin-top:4px;" onclick="submitReport('<%= item.t %>')">報告する</button>
+                    <% } else if (reported) { %>
+                      <div class="timeline-label" style="color:var(--success);">報告済み</div>
+                    <% } %>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duplicate Modal -->
+  <div class="modal-overlay" id="duplicate-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>⚠ タスク重複の可能性</h3>
+        <button class="modal-close" onclick="closeDuplicateModal()">×</button>
+      </div>
+      <div class="modal-body" id="duplicate-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeDuplicateModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="confirmAddTask()">それでも追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Split Suggestion Modal -->
+  <div class="modal-overlay" id="split-modal">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <h3>✂️ タスクを細分化しましょう</h3>
+        <button class="modal-close" onclick="closeSplitModal()">×</button>
+      </div>
+      <div class="modal-body" id="split-modal-body"></div>
+      <div class="modal-footer" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn btn-outline" onclick="skipSplitAndAdd()" style="font-size:13px;">このまま登録</button>
+        <button class="btn btn-primary" onclick="addSplitTasks()">✂️ 分けて登録</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    const socket = io();
+    socket.emit('join', { userId: <%= user.id %> });
+    socket.on('task-updated', () => location.reload());
+    socket.on('comment-added', () => {});
+
+    // Sortable drag & drop
+    const taskList = document.getElementById('task-list');
+    if (taskList) {
+      new Sortable(taskList, {
+        handle: '.drag-handle',
+        animation: 200,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: function() {
+          const items = taskList.querySelectorAll('.task-item[data-id]');
+          const order = [];
+          items.forEach((el, idx) => {
+            order.push({ id: parseInt(el.dataset.id), sort_order: idx + 1 });
+            const titleEl = el.querySelector('.task-title');
+            if (titleEl) {
+              titleEl.textContent = titleEl.textContent.replace(/^\d+\./, (idx + 1) + '.');
+            }
+          });
+          fetch('/api/tasks/reorder', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order })
+          });
+        }
+      });
+    }
+
+    function uploadAvatar(input, userId) {
+      if (!input.files[0]) return;
+      const formData = new FormData();
+      formData.append('avatar', input.files[0]);
+      fetch('/api/users/' + userId + '/avatar', { method: 'POST', body: formData })
+        .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+    }
+  </script>
+</body>
+</html>

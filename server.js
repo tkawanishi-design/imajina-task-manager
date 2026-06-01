@@ -254,6 +254,49 @@ app.get('/member', requireLogin, async (req, res) => {
 app.get('/manager', requireManager, async (req, res) => {
   try {
     const d = req.query.date || today();
+    const tab = req.query.tab;
+
+    // === マイタスク tab ===
+    if (tab === 'mytasks') {
+      const user = req.session.user;
+      const myTeam = await db.getTeamForUser(user.id, d);
+
+      // Auto carry-over
+      let carryOverCount = 0;
+      {
+        const alreadyDone = await db.hasCarryoverDone(user.id, d);
+        if (!alreadyDone) {
+          const prevDate = new Date(d);
+          prevDate.setDate(prevDate.getDate() - 1);
+          const prevStr = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0') + '-' + String(prevDate.getDate()).padStart(2,'0');
+          const prevTasks = await db.getTasksByUser(user.id, prevStr);
+          const uncompleted = prevTasks.filter(t => t.status !== 'completed');
+          if (uncompleted.length > 0) {
+            const existingTasks = await db.getTasksByUser(user.id, d);
+            const existingTitles = new Set(existingTasks.map(t => t.title));
+            for (const t of uncompleted) {
+              if (!existingTitles.has(t.title)) {
+                const teamForDate = await db.getTeamForUser(user.id, d);
+                await db.addTask(user.id, teamForDate ? teamForDate.id : null, d, t.title, t.category, t.estimated_minutes,
+                  '前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : ''));
+                carryOverCount++;
+              }
+            }
+          }
+          await db.logCarryover(user.id, d, carryOverCount);
+        }
+      }
+
+      const tasks = await db.getTasksByUser(user.id, d);
+      const totalEst = tasks.reduce((s, t) => s + t.estimated_minutes, 0);
+      const totalActual = tasks.reduce((s, t) => s + t.actual_minutes, 0);
+      const overallProgress = tasks.length > 0 ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
+      const reports = await db.getReports(user.id, d);
+
+      return res.render('manager-mytasks', { user, tasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount });
+    }
+
+    // === Dashboard tab (default) ===
     const teams = await db.getTeamsByDate(d);
     const allUsers = await db.getAllUsers();
 
@@ -308,7 +351,7 @@ app.get('/manager', requireManager, async (req, res) => {
       }
     }
 
-    res.render('manager', { user: req.session.user, teams: teamData, allUsers, alerts, phase, selectedDate: d, today: today() });
+    res.render('manager', { user: req.session.user, teams: teamData, allUsers, alerts, phase, selectedDate: d, today: today(), activeTab: 'dashboard' });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 

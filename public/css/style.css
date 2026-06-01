@@ -1157,6 +1157,33 @@ textarea { resize: vertical; min-height: 80px; }
   .time-badge { display: none; }
 }
 
+/* ===== MANAGER TABS ===== */
+.manager-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--gray-200);
+}
+.manager-tab {
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.manager-tab:hover {
+  color: var(--gray-700);
+  background: var(--gray-50);
+}
+.manager-tab.active {
+  color: var(--gray-900);
+  border-bottom-color: var(--gray-900);
+}
+
 /* Extra small screens (iPhone SE etc.) */
 @media (max-width: 400px) {
   .header h1 { font-size: 13px; }
