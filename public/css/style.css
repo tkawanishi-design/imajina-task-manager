@@ -1157,6 +1157,11 @@ textarea { resize: vertical; min-height: 80px; }
   .time-badge { display: none; }
 }
 
+/* ===== IME hint for Japanese input ===== */
+#new-task-title {
+  ime-mode: active;
+}
+
 /* ===== MANAGER TABS ===== */
 .manager-tabs {
   display: flex;

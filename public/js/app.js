@@ -44,6 +44,8 @@ function addTask() {
       pendingTask = data.task;
       showDuplicateWarning(data.duplicates, data.task);
     } else {
+      // リロード後にタスク入力欄へ自動フォーカスするフラグ
+      sessionStorage.setItem('taskJustAdded', '1');
       location.reload();
     }
   }).catch(() => {
@@ -353,3 +355,17 @@ function uploadAvatar(input, userId) {
   fetch('/api/users/' + userId + '/avatar', { method: 'POST', body: formData })
     .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
 }
+
+// タスク追加後、入力欄に自動フォーカス（IMEリセット対策）
+document.addEventListener('DOMContentLoaded', function() {
+  if (sessionStorage.getItem('taskJustAdded')) {
+    sessionStorage.removeItem('taskJustAdded');
+    const titleInput = document.getElementById('new-task-title');
+    if (titleInput) {
+      // スクロールして入力欄を見える位置に
+      titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 少し遅延してフォーカス（IMEが安定するのを待つ）
+      setTimeout(function() { titleInput.focus(); }, 300);
+    }
+  }
+});
