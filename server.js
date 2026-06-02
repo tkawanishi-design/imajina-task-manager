@@ -193,11 +193,11 @@ app.get('/member', requireLogin, async (req, res) => {
     const user = req.session.user;
     const myTeam = await db.getTeamForUser(user.id, d);
 
-    // --- Auto carry-over: copy uncompleted tasks from previous day (1回だけ実行) ---
+    // --- Auto carry-over: copy uncompleted tasks from previous day (先ロック方式で1回だけ実行) ---
     let carryOverCount = 0;
     {
-      const alreadyDone = await db.hasCarryoverDone(user.id, d);
-      if (!alreadyDone) {
+      const locked = await db.tryLockCarryover(user.id, d);
+      if (locked) {
         const prevDate = new Date(d);
         prevDate.setDate(prevDate.getDate() - 1);
         const prevStr = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0') + '-' + String(prevDate.getDate()).padStart(2,'0');
@@ -222,7 +222,7 @@ app.get('/member', requireLogin, async (req, res) => {
             }
           }
         }
-        await db.logCarryover(user.id, d, carryOverCount);
+        await db.updateCarryoverCount(user.id, d, carryOverCount);
       }
     }
 
@@ -261,11 +261,11 @@ app.get('/manager', requireManager, async (req, res) => {
       const user = req.session.user;
       const myTeam = await db.getTeamForUser(user.id, d);
 
-      // Auto carry-over
+      // Auto carry-over（先ロック方式で1回だけ実行）
       let carryOverCount = 0;
       {
-        const alreadyDone = await db.hasCarryoverDone(user.id, d);
-        if (!alreadyDone) {
+        const locked = await db.tryLockCarryover(user.id, d);
+        if (locked) {
           const prevDate = new Date(d);
           prevDate.setDate(prevDate.getDate() - 1);
           const prevStr = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0') + '-' + String(prevDate.getDate()).padStart(2,'0');
@@ -283,7 +283,7 @@ app.get('/manager', requireManager, async (req, res) => {
               }
             }
           }
-          await db.logCarryover(user.id, d, carryOverCount);
+          await db.updateCarryoverCount(user.id, d, carryOverCount);
         }
       }
 

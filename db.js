@@ -70,7 +70,8 @@ async function initDB() {
         user_id INTEGER REFERENCES users(id),
         date TEXT NOT NULL,
         count INTEGER DEFAULT 0,
-        created_at TEXT
+        created_at TEXT,
+        UNIQUE(user_id, date)
       );
     `);
 
@@ -100,6 +101,30 @@ async function initDB() {
       }
       console.log('Default users seeded.');
     }
+
+    // Migration: carryover_log に UNIQUE 制約を追加（レースコンディション防止）
+    try {
+      await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_carryover_user_date ON carryover_log (user_id, date)');
+    } catch (e) { /* already exists */ }
+
+    // Migration: carryover_log の重複エントリを削除（最初の1件だけ残す）
+    try {
+      await client.query(`
+        DELETE FROM carryover_log WHERE id NOT IN (
+          SELECT MIN(id) FROM carryover_log GROUP BY user_id, date
+        )
+      `);
+    } catch (e) { /* ignore */ }
+
+    // Migration: 重複タスクを削除（同じuser_id, date, titleの組み合わせで最初の1件だけ残す）
+    try {
+      const { rowCount } = await client.query(`
+        DELETE FROM tasks WHERE id NOT IN (
+          SELECT MIN(id) FROM tasks GROUP BY user_id, date, title
+        )
+      `);
+      if (rowCount > 0) console.log('Cleaned up ' + rowCount + ' duplicate tasks.');
+    } catch (e) { console.error('Duplicate task cleanup failed:', e.message); }
   } finally {
     client.release();
   }
@@ -321,6 +346,24 @@ const db = {
     await pool.query(
       'INSERT INTO carryover_log (user_id, date, count, created_at) VALUES ($1, $2, $3, $4)',
       [userId, date, count, now()]
+    );
+  },
+  // レースコンディション防止：先にログを書いてロック（INSERT失敗=既に実行済み）
+  async tryLockCarryover(userId, date) {
+    try {
+      await pool.query(
+        'INSERT INTO carryover_log (user_id, date, count, created_at) VALUES ($1, $2, 0, $3)',
+        [userId, date, now()]
+      );
+      return true; // ロック取得成功
+    } catch (e) {
+      return false; // 既にログあり（UNIQUEエラー or 重複）
+    }
+  },
+  async updateCarryoverCount(userId, date, count) {
+    await pool.query(
+      'UPDATE carryover_log SET count = $3 WHERE user_id = $1 AND date = $2',
+      [userId, date, count]
     );
   },
 
