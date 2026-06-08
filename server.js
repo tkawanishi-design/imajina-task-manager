@@ -63,6 +63,14 @@ function today() {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
+// 'YYYY-MM-DD' の前日を返す（サーバーのタイムゾーンに依存しないUTC基準の文字列計算）
+function prevDayStr(dateStr) {
+  const [y, m, dd] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, dd));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth()+1).padStart(2,'0') + '-' + String(dt.getUTCDate()).padStart(2,'0');
+}
+
 function currentPhase() {
   const now = getJST();
   const h = now.getHours();
@@ -193,36 +201,42 @@ app.get('/member', requireLogin, async (req, res) => {
     const user = req.session.user;
     const myTeam = await db.getTeamForUser(user.id, d);
 
-    // --- Auto carry-over: copy uncompleted tasks from previous day (先ロック方式で1回だけ実行) ---
+    // --- Auto carry-over: copy uncompleted tasks from previous day ---
+    // 本日アクセス時のみ実行（過去/未来日を閲覧しても繰越を発火させない）＋先ロック方式で1回だけ実行
     let carryOverCount = 0;
-    {
+    if (d === today()) {
       const locked = await db.tryLockCarryover(user.id, d);
       if (locked) {
-        const prevDate = new Date(d);
-        prevDate.setDate(prevDate.getDate() - 1);
-        const prevStr = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0') + '-' + String(prevDate.getDate()).padStart(2,'0');
-        const prevTasks = await db.getTasksByUser(user.id, prevStr);
-        const uncompleted = prevTasks.filter(t => t.status !== 'completed');
-        if (uncompleted.length > 0) {
-          const existingTasks = await db.getTasksByUser(user.id, d);
-          const existingTitles = new Set(existingTasks.map(t => t.title));
-          for (const t of uncompleted) {
-            if (!existingTitles.has(t.title)) {
-              const teamForDate = await db.getTeamForUser(user.id, d);
-              await db.addTask(
-                user.id,
-                teamForDate ? teamForDate.id : null,
-                d,
-                t.title,
-                t.category,
-                t.estimated_minutes,
-                '前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : '')
-              );
-              carryOverCount++;
+        try {
+          const prevStr = prevDayStr(d);
+          const prevTasks = await db.getTasksByUser(user.id, prevStr);
+          const uncompleted = prevTasks.filter(t => t.status !== 'completed');
+          if (uncompleted.length > 0) {
+            const existingTasks = await db.getTasksByUser(user.id, d);
+            const existingTitles = new Set(existingTasks.map(t => t.title));
+            const teamForDate = await db.getTeamForUser(user.id, d);
+            for (const t of uncompleted) {
+              if (!existingTitles.has(t.title)) {
+                await db.addTask(
+                  user.id,
+                  teamForDate ? teamForDate.id : null,
+                  d,
+                  t.title,
+                  t.category,
+                  t.estimated_minutes,
+                  '前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : '')
+                );
+                carryOverCount++;
+              }
             }
           }
+          await db.updateCarryoverCount(user.id, d, carryOverCount);
+        } catch (err) {
+          // コピー途中で失敗したらロックを解放し、次回アクセス時に再試行できるようにする
+          console.error('carry-over failed, releasing lock for retry:', err);
+          await db.releaseCarryoverLock(user.id, d);
+          carryOverCount = 0;
         }
-        await db.updateCarryoverCount(user.id, d, carryOverCount);
       }
     }
 
@@ -261,29 +275,33 @@ app.get('/manager', requireManager, async (req, res) => {
       const user = req.session.user;
       const myTeam = await db.getTeamForUser(user.id, d);
 
-      // Auto carry-over（先ロック方式で1回だけ実行）
+      // Auto carry-over（本日アクセス時のみ・先ロック方式で1回だけ実行）
       let carryOverCount = 0;
-      {
+      if (d === today()) {
         const locked = await db.tryLockCarryover(user.id, d);
         if (locked) {
-          const prevDate = new Date(d);
-          prevDate.setDate(prevDate.getDate() - 1);
-          const prevStr = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0') + '-' + String(prevDate.getDate()).padStart(2,'0');
-          const prevTasks = await db.getTasksByUser(user.id, prevStr);
-          const uncompleted = prevTasks.filter(t => t.status !== 'completed');
-          if (uncompleted.length > 0) {
-            const existingTasks = await db.getTasksByUser(user.id, d);
-            const existingTitles = new Set(existingTasks.map(t => t.title));
-            for (const t of uncompleted) {
-              if (!existingTitles.has(t.title)) {
-                const teamForDate = await db.getTeamForUser(user.id, d);
-                await db.addTask(user.id, teamForDate ? teamForDate.id : null, d, t.title, t.category, t.estimated_minutes,
-                  '前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : ''));
-                carryOverCount++;
+          try {
+            const prevStr = prevDayStr(d);
+            const prevTasks = await db.getTasksByUser(user.id, prevStr);
+            const uncompleted = prevTasks.filter(t => t.status !== 'completed');
+            if (uncompleted.length > 0) {
+              const existingTasks = await db.getTasksByUser(user.id, d);
+              const existingTitles = new Set(existingTasks.map(t => t.title));
+              const teamForDate = await db.getTeamForUser(user.id, d);
+              for (const t of uncompleted) {
+                if (!existingTitles.has(t.title)) {
+                  await db.addTask(user.id, teamForDate ? teamForDate.id : null, d, t.title, t.category, t.estimated_minutes,
+                    '前日からの繰越タスクです。' + (t.ai_suggestion ? ' ' + t.ai_suggestion : ''));
+                  carryOverCount++;
+                }
               }
             }
+            await db.updateCarryoverCount(user.id, d, carryOverCount);
+          } catch (err) {
+            console.error('carry-over failed, releasing lock for retry:', err);
+            await db.releaseCarryoverLock(user.id, d);
+            carryOverCount = 0;
           }
-          await db.updateCarryoverCount(user.id, d, carryOverCount);
         }
       }
 

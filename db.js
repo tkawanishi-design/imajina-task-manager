@@ -116,14 +116,16 @@ async function initDB() {
       `);
     } catch (e) { /* ignore */ }
 
-    // Migration: 重複タスクを削除（同じuser_id, date, titleの組み合わせで最初の1件だけ残す）
+    // Migration: 「繰越由来」の重複タスクのみ削除（ユーザーが手動で作成した同名タスクは保護する）
+    // 同じ user_id, date, title のグループで最古の1件以外、かつ繰越タスク（ai_suggestionが繰越文言）だけを削除
     try {
       const { rowCount } = await client.query(`
         DELETE FROM tasks WHERE id NOT IN (
           SELECT MIN(id) FROM tasks GROUP BY user_id, date, title
         )
+        AND ai_suggestion LIKE '前日からの繰越タスクです。%'
       `);
-      if (rowCount > 0) console.log('Cleaned up ' + rowCount + ' duplicate tasks.');
+      if (rowCount > 0) console.log('Cleaned up ' + rowCount + ' duplicate carry-over tasks.');
     } catch (e) { console.error('Duplicate task cleanup failed:', e.message); }
   } finally {
     client.release();
@@ -359,6 +361,10 @@ const db = {
     } catch (e) {
       return false; // 既にログあり（UNIQUEエラー or 重複）
     }
+  },
+  // コピー失敗時にロック行を削除して次回再試行を可能にする
+  async releaseCarryoverLock(userId, date) {
+    await pool.query('DELETE FROM carryover_log WHERE user_id = $1 AND date = $2', [userId, date]);
   },
   async updateCarryoverCount(userId, date, count) {
     await pool.query(
