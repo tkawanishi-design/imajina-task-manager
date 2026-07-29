@@ -392,7 +392,12 @@ app.get('/member', requireLogin, async (req, res) => {
     const workEnd = schedSettings ? schedSettings.work_end_min : 1200;
     const daySchedule = buildDaySchedule({ workStart, workEnd, events: scheduleEvents, tasks });
 
-    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents });
+    // 強制退勤CAUTION（DBから最新値を取得。マネージャー等が変更しても即反映）
+    const meFresh = await db.getUserById(user.id);
+    const forceLeaveEnabled = meFresh && meFresh.force_leave_enabled ? 1 : 0;
+    const forceLeaveTime = (meFresh && meFresh.force_leave_time) || '20:00';
+
+    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents, forceLeaveEnabled, forceLeaveTime });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
@@ -450,7 +455,11 @@ app.get('/manager', requireManager, async (req, res) => {
       const workEnd = schedSettings ? schedSettings.work_end_min : 1200;
       const daySchedule = buildDaySchedule({ workStart, workEnd, events: scheduleEvents, tasks });
 
-      return res.render('manager-mytasks', { user, tasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents });
+      const meFresh = await db.getUserById(user.id);
+      const forceLeaveEnabled = meFresh && meFresh.force_leave_enabled ? 1 : 0;
+      const forceLeaveTime = (meFresh && meFresh.force_leave_time) || '20:00';
+
+      return res.render('manager-mytasks', { user, tasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents, forceLeaveEnabled, forceLeaveTime });
     }
 
     // === Dashboard tab (default) ===
@@ -730,6 +739,25 @@ app.post('/api/schedule/settings', requireLogin, async (req, res) => {
     const en = typeof work_end === 'number' ? work_end : timeToMin(work_end);
     if (s == null || en == null || en <= s) return res.status(400).json({ error: '勤務時間が不正です（開始 < 終了）' });
     await db.setScheduleSettings(req.session.user.id, d, s, en);
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// 強制退勤CAUTION表示の切替（マネージャー=全員 / リーダー=自チームのメンバーのみ）
+app.post('/api/users/:id/force-leave', requireLogin, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id);
+    const requester = req.session.user;
+    let allowed = requester.role === 'manager';
+    if (!allowed && requester.role === 'leader') {
+      const team = await db.getTeamForUser(targetId, today());
+      allowed = !!(team && team.leader_id === requester.id);
+    }
+    if (!allowed) return res.status(403).json({ error: '権限がありません（マネージャー／担当リーダーのみ変更できます）' });
+    const { enabled, time } = req.body;
+    const t = (typeof time === 'string' && /^\d{1,2}:\d{2}$/.test(time)) ? time : '20:00';
+    await db.setForceLeave(targetId, enabled ? 1 : 0, t);
+    io.emit('task-updated', { userId: targetId, date: today() }); // 対象者の画面を更新
     res.json({ ok: true });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });

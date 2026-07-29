@@ -1162,6 +1162,14 @@ textarea { resize: vertical; min-height: 80px; }
   ime-mode: active;
 }
 
+/* ===== FORCE-LEAVE TOGGLE ===== */
+.fl-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--gray-500); cursor: pointer; white-space: nowrap;
+  background: var(--gray-50); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--gray-200);
+}
+.fl-toggle input { cursor: pointer; margin: 0; }
+
 /* ===== DAY SCHEDULE ===== */
 .sched-body { display: flex; gap: 20px; align-items: flex-start; }
 .sched-controls { flex: 0 0 340px; min-width: 0; }

@@ -145,6 +145,12 @@ async function initDB() {
       `);
       if (rowCount > 0) console.log('Cleaned up ' + rowCount + ' duplicate carry-over tasks.');
     } catch (e) { console.error('Duplicate task cleanup failed:', e.message); }
+
+    // Migration: 強制退勤CAUTION表示のON/OFFと時刻をusersに追加
+    try {
+      await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS force_leave_enabled INTEGER DEFAULT 0");
+      await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS force_leave_time TEXT DEFAULT '20:00'");
+    } catch (e) { console.error('force_leave migration failed:', e.message); }
   } finally {
     client.release();
   }
@@ -423,6 +429,14 @@ const db = {
       `INSERT INTO schedule_settings (user_id, date, work_start_min, work_end_min) VALUES ($1,$2,$3,$4)
        ON CONFLICT (user_id, date) DO UPDATE SET work_start_min = $3, work_end_min = $4`,
       [userId, date, workStartMin, workEndMin]
+    );
+  },
+
+  // 強制退勤CAUTION表示の設定
+  async setForceLeave(userId, enabled, time) {
+    await pool.query(
+      'UPDATE users SET force_leave_enabled = $2, force_leave_time = $3 WHERE id = $1',
+      [userId, enabled ? 1 : 0, time || '20:00']
     );
   },
 

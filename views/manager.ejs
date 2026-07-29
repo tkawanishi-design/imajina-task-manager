@@ -199,6 +199,10 @@
                   </span>
                   <% if (mt.hasDelay) { %><span style="color:var(--danger);font-size:12px;white-space:nowrap;">遅延</span><% } %>
                   <% if (mt.hasQuestions) { %><span style="color:var(--primary);font-size:12px;white-space:nowrap;">❓質問</span><% } %>
+                  <label class="fl-toggle" onclick="event.stopPropagation();" title="設定時刻(既定20:00)に本人画面へ強制退勤CAUTIONを表示">
+                    <input type="checkbox" <%= mt.user.force_leave_enabled ? 'checked' : '' %> onchange="event.stopPropagation();setForceLeave(<%= mt.user.id %>, this.checked)">
+                    <span>🚫退勤</span>
+                  </label>
                 </div>
                 <div class="member-stats">
                   <span><%= mt.tasks.length %>タスク</span>

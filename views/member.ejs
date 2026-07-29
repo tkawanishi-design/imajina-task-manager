@@ -36,6 +36,8 @@
   </div>
 
   <div class="container">
+    <%- include('partials/force-leave-banner') %>
+
     <!-- Date Navigation -->
     <%
       const todayStr = today;
@@ -305,6 +307,10 @@
               <span style="font-weight:700;font-size:14px;color:<%= mt.progress >= 80 ? 'var(--success)' : mt.progress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
                 <%= mt.progress %>%
               </span>
+              <label class="fl-toggle" onclick="event.stopPropagation();" title="設定時刻(既定20:00)に本人画面へ強制退勤CAUTIONを表示">
+                <input type="checkbox" <%= mt.user.force_leave_enabled ? 'checked' : '' %> onchange="event.stopPropagation();setForceLeave(<%= mt.user.id %>, this.checked)">
+                <span>🚫退勤</span>
+              </label>
             </div>
             <div class="member-stats">
               <span>タスク: <%= mt.tasks.length %></span>

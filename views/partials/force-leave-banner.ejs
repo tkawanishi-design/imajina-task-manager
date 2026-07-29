@@ -1,0 +1,9 @@
+<% if (typeof forceLeaveEnabled !== 'undefined' && forceLeaveEnabled) { %>
+<div id="force-leave-banner" data-fl-time="<%= forceLeaveTime %>" style="display:none;align-items:center;gap:14px;background:#dc2626;color:#fde047;padding:16px 20px;border-radius:12px;margin-bottom:16px;border:2px solid #fde047;box-shadow:0 4px 14px rgba(220,38,38,0.45);">
+  <span style="font-size:26px;line-height:1;">🚨</span>
+  <div>
+    <div style="font-size:19px;font-weight:800;letter-spacing:1.5px;">CAUTION：業務終了時刻です</div>
+    <div style="font-size:13px;color:#ffffff;font-weight:600;margin-top:3px;"><%= forceLeaveTime %> を過ぎています。今日の作業を切り上げて退勤しましょう。</div>
+  </div>
+</div>
+<% } %>

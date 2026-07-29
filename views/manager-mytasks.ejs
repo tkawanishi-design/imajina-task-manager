@@ -39,6 +39,8 @@
   <div class="container">
     <%- include('partials/manager-tabs', { activeTab: 'mytasks', selectedDate: selectedDate }) %>
 
+    <%- include('partials/force-leave-banner') %>
+
     <!-- Date Navigation -->
     <%
       const todayStr = today;

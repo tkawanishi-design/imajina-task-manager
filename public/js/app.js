@@ -369,3 +369,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 });
+
+// 強制退勤CAUTIONバナー：設定時刻(JST)を過ぎたら表示、30秒ごとに再判定
+document.addEventListener('DOMContentLoaded', function() {
+  const el = document.getElementById('force-leave-banner');
+  if (!el) return;
+  const parts = (el.dataset.flTime || '20:00').split(':');
+  const target = (parseInt(parts[0], 10) || 20) * 60 + (parseInt(parts[1], 10) || 0);
+  function check() {
+    const now = new Date();
+    const jst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+    const cur = jst.getHours() * 60 + jst.getMinutes();
+    el.style.display = (cur >= target) ? 'flex' : 'none';
+  }
+  check();
+  setInterval(check, 30000);
+});
+
+// 強制退勤CAUTION表示の切替（マネージャー／担当リーダーがメンバー別に設定）
+function setForceLeave(userId, enabled) {
+  fetch('/api/users/' + userId + '/force-leave', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: !!enabled })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.ok) alert(d.error || '変更に失敗しました');
+  }).catch(function() { alert('通信エラーが発生しました'); });
+}
