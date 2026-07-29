@@ -107,7 +107,9 @@ async function initDB() {
         { name: '神崎祐樹', login_id: 'kanzaki', password: 'pass1234', role: 'member' },
         { name: '秋山柚衣', login_id: 'akiyama', password: 'pass1234', role: 'member' },
         { name: '青木遥斗', login_id: 'aoki', password: 'pass1234', role: 'member' },
-        { name: '横山嶺州多', login_id: 'yokoyama', password: 'pass1234', role: 'member' }
+        { name: '横山嶺州多', login_id: 'yokoyama', password: 'pass1234', role: 'member' },
+        { name: '前岡俊哉', login_id: 'maeoka', password: 'pass1234', role: 'member' },
+        { name: '藤原綾乃', login_id: 'fujiwara', password: 'pass1234', role: 'member' }
       ];
       for (const u of defaultUsers) {
         await client.query(
