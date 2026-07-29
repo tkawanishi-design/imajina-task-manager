@@ -54,33 +54,3 @@ function schedSaveSettings() {
   schedPost('/api/schedule/settings', { date: schedDate(), work_start, work_end })
     .then(d => { if (d.ok) location.reload(); else alert(d.error || '保存に失敗しました'); });
 }
-
-// 画像からOCR（Tesseract.jsをブラウザ内で実行・API消費なし）
-async function schedOCR(input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  const status = document.getElementById('sched-ocr-status');
-  const setStatus = (t) => { if (status) status.textContent = t; };
-  try {
-    if (!window.Tesseract) {
-      setStatus('OCRライブラリを読み込み中…');
-      await new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-        s.onload = res; s.onerror = () => rej(new Error('ライブラリの読み込みに失敗しました'));
-        document.head.appendChild(s);
-      });
-    }
-    setStatus('画像を解析中…（初回は日本語データのDLで数十秒かかります）');
-    const { data } = await Tesseract.recognize(file, 'jpn+eng', {
-      logger: m => { if (m.status === 'recognizing text') setStatus('解析中… ' + Math.round(m.progress * 100) + '%'); }
-    });
-    const ta = document.getElementById('sched-import-text');
-    if (ta) ta.value = (ta.value ? ta.value + '\n' : '') + (data.text || '').trim();
-    setStatus('読み取り完了。内容を確認・修正して「取り込む」を押してください（認識ミスは手直し前提です）。');
-  } catch (e) {
-    setStatus('OCRに失敗しました: ' + e.message + ' → テキストを直接入力してください。');
-  } finally {
-    input.value = '';
-  }
-}
