@@ -20,6 +20,23 @@
     <!-- 左：入力コントロール -->
     <div class="sched-controls">
       <label class="sched-label">予定を貼り付け <span style="font-weight:400;color:var(--gray-400);">（例: <code>10:00-10:30 イズラ様MTG</code> を改行区切りで）</span></label>
+
+      <details class="sched-prompt-box">
+        <summary>📷 カレンダーのスクショから作る（別AIに読ませる用プロンプト）</summary>
+        <div class="sched-prompt-hint">下の「プロンプトをコピー」を押して、ChatGPT / Claude などに<strong>カレンダーのスクショと一緒に</strong>貼り付け → 出てきた結果をこの下の欄に貼り付けて「取り込む」を押してください。</div>
+        <pre id="sched-prompt" class="sched-prompt-text">添付したカレンダーのスクリーンショットを読み取り、その日の予定をすべて、1行につき1件、次の形式「だけ」で書き出してください（見出し・説明など他の文章は一切不要です）。
+
+HH:MM-HH:MM 予定名
+
+例：
+10:00-10:30 イズラ様 研修振り返りMTG
+15:00-16:00 【WEB】無料相談会
+
+・時刻は24時間表記でお願いします。
+・終了時刻が読み取れない予定は「HH:MM 予定名」だけでも構いません。</pre>
+        <button class="btn btn-sm btn-outline" type="button" onclick="schedCopyPrompt(this)">📋 プロンプトをコピー</button>
+      </details>
+
       <textarea id="sched-import-text" class="sched-textarea" rows="5" placeholder="9:00-9:30 朝会&#10;10:00-10:30 イズラ様 研修振り返りMTG&#10;15:00-16:00 【WEB】無料相談会&#10;18:00 テクノ・ラボ MTG"></textarea>
       <div class="sched-btn-row">
         <button class="btn btn-sm btn-primary" onclick="schedImport(true)">取り込む（置換）</button>

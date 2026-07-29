@@ -54,3 +54,28 @@ function schedSaveSettings() {
   schedPost('/api/schedule/settings', { date: schedDate(), work_start, work_end })
     .then(d => { if (d.ok) location.reload(); else alert(d.error || '保存に失敗しました'); });
 }
+
+// スクショ読み取り用プロンプトをクリップボードにコピー
+function schedCopyPrompt(btn) {
+  const el = document.getElementById('sched-prompt');
+  const text = el ? el.textContent : '';
+  const done = () => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ コピーしました';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+  };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); done(); }
+    catch (e) { alert('コピーに失敗しました。プロンプトを手動で選択してコピーしてください。'); }
+    document.body.removeChild(ta);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else {
+    fallback();
+  }
+}

@@ -386,6 +386,28 @@ document.addEventListener('DOMContentLoaded', function() {
   setInterval(check, 30000);
 });
 
+// スケジュール/タスクのタブ切替（スクロール不要に）
+function showDayTab(name) {
+  document.querySelectorAll('.day-pane').forEach(function(p) {
+    p.style.display = (p.dataset.pane === name) ? '' : 'none';
+  });
+  document.querySelectorAll('.day-tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.pane === name);
+  });
+  try { sessionStorage.setItem('dayTab', name); } catch (e) {}
+}
+// 「タスクをスケジュールに反映」：最新タスクで再計算するためリロードし、スケジュールタブを開く
+function reflectToSchedule() {
+  try { sessionStorage.setItem('dayTab', 'schedule'); } catch (e) {}
+  location.reload();
+}
+document.addEventListener('DOMContentLoaded', function() {
+  if (!document.querySelector('.day-tabs')) return;
+  var tab = 'tasks';
+  try { tab = sessionStorage.getItem('dayTab') || 'tasks'; } catch (e) {}
+  showDayTab(tab);
+});
+
 // 強制退勤CAUTION表示の切替（マネージャー／担当リーダーがメンバー別に設定）
 function setForceLeave(userId, enabled) {
   fetch('/api/users/' + userId + '/force-leave', {

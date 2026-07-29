@@ -1214,6 +1214,20 @@ textarea { resize: vertical; min-height: 80px; }
   .sched-controls { flex: 1 1 auto; width: 100%; }
 }
 
+/* スクショ読み取り用プロンプト box */
+.sched-prompt-box { margin: 8px 0; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); padding: 8px 10px; }
+.sched-prompt-box > summary { cursor: pointer; font-weight: 600; color: var(--gray-600); font-size: 12px; user-select: none; }
+.sched-prompt-hint { margin: 8px 0; color: var(--gray-500); font-size: 12px; line-height: 1.55; }
+.sched-prompt-text { white-space: pre-wrap; background: #fff; border: 1px solid var(--gray-200); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: var(--gray-700); font-family: inherit; margin: 0 0 8px; max-height: 220px; overflow-y: auto; }
+
+/* ===== DAY TABS (スケジュール/タスク 切替) ===== */
+.day-tabs { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.day-tabs-left { display: flex; gap: 8px; }
+.day-tab { padding: 9px 20px; font-size: 14px; font-weight: 700; color: var(--gray-500); background: var(--gray-100); border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.day-tab:hover { color: var(--gray-800); }
+.day-tab.active { color: #fff; background: var(--gray-900); }
+.day-reflect-btn { white-space: nowrap; }
+
 /* ===== MANAGER TABS ===== */
 .manager-tabs {
   display: flex;

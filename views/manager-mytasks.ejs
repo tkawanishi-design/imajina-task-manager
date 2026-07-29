@@ -162,9 +162,21 @@
       <div class="motivation-message"><%= motivationMsg %></div>
     </div>
 
-    <!-- Day Schedule -->
-    <%- include('partials/day-schedule') %>
+    <!-- Schedule / Tasks タブ切替 -->
+    <div class="day-tabs">
+      <div class="day-tabs-left">
+        <button class="day-tab" data-pane="schedule" onclick="showDayTab('schedule')">📅 スケジュール</button>
+        <button class="day-tab" data-pane="tasks" onclick="showDayTab('tasks')">📝 タスク</button>
+      </div>
+      <button class="btn btn-sm btn-primary day-reflect-btn" onclick="reflectToSchedule()">📅 タスクをスケジュールに反映</button>
+    </div>
 
+    <div class="day-pane" data-pane="schedule">
+      <!-- Day Schedule -->
+      <%- include('partials/day-schedule') %>
+    </div>
+
+    <div class="day-pane" data-pane="tasks">
     <div class="grid-2">
       <!-- Left: Task List -->
       <div>
@@ -269,6 +281,7 @@
         </div>
       </div>
     </div>
+    </div><!-- /.day-pane[tasks] -->
   </div>
 
   <!-- Duplicate Modal -->
