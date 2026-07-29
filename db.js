@@ -104,10 +104,8 @@ async function initDB() {
         { name: '竹村理央', login_id: 'takemura', password: 'pass1234', role: 'leader' },
         { name: '渡邊竣介', login_id: 'watanabe', password: 'pass1234', role: 'member' },
         { name: '尾形海斗', login_id: 'ogata', password: 'pass1234', role: 'member' },
-        { name: '熊崎美優', login_id: 'kumazaki', password: 'pass1234', role: 'member' },
         { name: '神崎祐樹', login_id: 'kanzaki', password: 'pass1234', role: 'member' },
         { name: '秋山柚衣', login_id: 'akiyama', password: 'pass1234', role: 'member' },
-        { name: '蕪木康成', login_id: 'kaburagi', password: 'pass1234', role: 'member' },
         { name: '青木遥斗', login_id: 'aoki', password: 'pass1234', role: 'member' },
         { name: '横山嶺州多', login_id: 'yokoyama', password: 'pass1234', role: 'member' }
       ];
@@ -151,6 +149,11 @@ async function initDB() {
       await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS force_leave_enabled INTEGER DEFAULT 0");
       await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS force_leave_time TEXT DEFAULT '20:00'");
     } catch (e) { console.error('force_leave migration failed:', e.message); }
+
+    // Migration: 在籍フラグ（退職者を論理削除で全リストから除外するため。既存行は在籍=1に）
+    try {
+      await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1");
+    } catch (e) { console.error('active column migration failed:', e.message); }
   } finally {
     client.release();
   }
@@ -186,12 +189,16 @@ const db = {
     return rows[0] || null;
   },
   async getAllUsers() {
-    const { rows } = await pool.query(`SELECT * FROM users ORDER BY
+    const { rows } = await pool.query(`SELECT * FROM users WHERE active = 1 ORDER BY
       CASE role WHEN 'manager' THEN 0 WHEN 'leader' THEN 1 ELSE 2 END, name`);
     return rows;
   },
+  // 在籍者の有効/無効を切り替え（退職者は active=0 で全リストから除外）
+  async setUserActive(id, active) {
+    await pool.query('UPDATE users SET active = $2 WHERE id = $1', [id, active ? 1 : 0]);
+  },
   async getNonManagerUsers() {
-    const { rows } = await pool.query("SELECT * FROM users WHERE role != 'manager' ORDER BY name");
+    const { rows } = await pool.query("SELECT * FROM users WHERE role != 'manager' AND active = 1 ORDER BY name");
     return rows;
   },
   async addUser(name, loginId, password, role) {
