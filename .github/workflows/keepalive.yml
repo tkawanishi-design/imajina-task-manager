@@ -1,0 +1,31 @@
+name: Keep Alive
+
+# Supabase(無料枠)は7日間アクセスがないと自動停止し、Render(無料枠)も15分で寝る。
+# 外部スケジューラ(GitHub Actions)から /health を定期的に叩くことで、
+# Renderを起こし→そのエンドポイントがDBに軽いクエリを投げ、両方をアクティブに保つ。
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'   # 6時間ごと(UTC)。停止まで7日あるので十分な余裕
+  workflow_dispatch:          # 手動実行も可能
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health (Renderのコールドスタートを見込んでリトライ)
+        run: |
+          URL="https://imajina-task-manager.onrender.com/health"
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" --max-time 90 "$URL") || code=000
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "body: $(cat /tmp/body)"
+              echo "keep-alive OK"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "health check did not return 200 after retries"
+          echo "last body: $(cat /tmp/body 2>/dev/null)"
+          exit 1

@@ -170,6 +170,12 @@ function now() {
 const db = {
   initDB,
 
+  // キープアライブ用の軽量クエリ（Supabase無料枠の自動停止を防ぐ）
+  async ping() {
+    const { rows } = await pool.query('SELECT 1 AS ok');
+    return rows[0];
+  },
+
   // Users
   async getUser(loginId, password) {
     const { rows } = await pool.query('SELECT * FROM users WHERE login_id = $1 AND password = $2', [loginId, password]);

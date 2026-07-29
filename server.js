@@ -302,6 +302,16 @@ function autoCategory(title) {
 
 // ============ ROUTES ============
 
+// ヘルスチェック兼キープアライブ（外部cronから叩き、DBに軽いクエリを投げてSupauseの自動停止を防ぐ）
+app.get('/health', async (req, res) => {
+  try {
+    await db.ping();
+    res.json({ ok: true, db: 'up', time: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ ok: false, db: 'down', error: e.message });
+  }
+});
+
 app.get('/login', (req, res) => { res.render('login', { error: null }); });
 
 app.post('/login', async (req, res) => {
