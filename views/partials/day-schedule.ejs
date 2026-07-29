@@ -1,0 +1,104 @@
+<%
+  const ds = daySchedule;
+  const PX = 1.1; // 1分あたりのピクセル
+  const spanStart = ds.spanStart, spanEnd = ds.spanEnd;
+  const totalH = Math.max(120, (spanEnd - spanStart) * PX);
+  const catColor = { '会議': '#2563eb', '打合せ': '#2563eb' };
+%>
+<div class="day-schedule card" data-date="<%= selectedDate %>" style="margin-bottom:20px;">
+  <div class="card-header">
+    <h2>📅 今日のスケジュール</h2>
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
+      <span style="color:var(--gray-500);">勤務</span>
+      <input type="time" id="sched-work-start" value="<%= minToTime(ds.workStart) %>" style="padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;">
+      <span>〜</span>
+      <input type="time" id="sched-work-end" value="<%= minToTime(ds.workEnd) %>" style="padding:4px 6px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;">
+      <button class="btn btn-sm btn-outline" onclick="schedSaveSettings()">保存</button>
+    </div>
+  </div>
+  <div class="card-body sched-body">
+    <!-- 左：入力コントロール -->
+    <div class="sched-controls">
+      <label class="sched-label">予定を貼り付け <span style="font-weight:400;color:var(--gray-400);">（例: <code>10:00-10:30 イズラ様MTG</code> を改行区切りで）</span></label>
+      <textarea id="sched-import-text" class="sched-textarea" rows="5" placeholder="9:00-9:30 朝会&#10;10:00-10:30 イズラ様 研修振り返りMTG&#10;15:00-16:00 【WEB】無料相談会&#10;18:00 テクノ・ラボ MTG"></textarea>
+      <div class="sched-btn-row">
+        <button class="btn btn-sm btn-primary" onclick="schedImport(true)">取り込む（置換）</button>
+        <button class="btn btn-sm btn-outline" onclick="schedImport(false)">追加取り込み</button>
+        <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0;">🖼 画像から読み取り
+          <input type="file" accept="image/*" onchange="schedOCR(this)" style="display:none;">
+        </label>
+      </div>
+      <div id="sched-ocr-status" class="sched-ocr-status"></div>
+
+      <div class="sched-add-row">
+        <input type="time" id="sched-add-start" class="sched-mini">
+        <span>〜</span>
+        <input type="time" id="sched-add-end" class="sched-mini">
+        <input type="text" id="sched-add-title" class="sched-mini-title" placeholder="予定名">
+        <button class="btn btn-sm btn-outline" onclick="schedAddEvent()">＋予定</button>
+        <button class="btn btn-sm btn-outline" onclick="schedQuickLunch()">＋昼休み</button>
+      </div>
+
+      <div class="sched-event-list">
+        <% if (ds.events.length === 0) { %>
+          <p style="color:var(--gray-400);font-size:13px;padding:8px 0;">まだ予定が登録されていません。上から貼り付け or 追加してください。</p>
+        <% } %>
+        <% ds.events.forEach(function(e){ %>
+          <div class="sched-event-item <%= e.kind === 'break' ? 'is-break' : '' %>">
+            <span class="sched-event-time"><%= minToTime(e.start) %>–<%= minToTime(e.end) %></span>
+            <span class="sched-event-title"><%= e.title %></span>
+            <button class="sched-event-del" onclick="schedDeleteEvent(<%= e.id %>)" title="削除">×</button>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- 右：タイムライン -->
+    <div class="sched-timeline-wrap">
+      <div class="sched-stats">
+        <span>空き時間 <strong><%= fmtMin(ds.freeMinutes) %></strong></span>
+        <span>タスク <strong><%= fmtMin(ds.scheduledMin + ds.overflowMin) %></strong></span>
+        <% if (ds.fits) { %>
+          <span class="sched-fit-ok">✓ 勤務時間内に収まります</span>
+        <% } else { %>
+          <span class="sched-fit-ng">⚠ <%= fmtMin(ds.overflowMin) %> はみ出し</span>
+        <% } %>
+      </div>
+
+      <% if (ds.overflow.length > 0) { %>
+        <div class="sched-warn sched-warn-danger">
+          <strong>⚠ 勤務時間（〜<%= minToTime(ds.workEnd) %>）に収まらないタスク</strong>
+          <ul><% ds.overflow.forEach(function(o){ %><li><%= o.title %>（<%= fmtMin(o.minutes) %>）</li><% }) %></ul>
+          <div class="sched-warn-hint">優先順位の見直し・分割・翌日回し・ヘルプを検討してください。</div>
+        </div>
+      <% } %>
+      <% if (ds.unestimated.length > 0) { %>
+        <div class="sched-warn sched-warn-note">
+          所要時間が未設定のためスケジュールに配置していないタスク：
+          <% ds.unestimated.forEach(function(u, i){ %><%= i>0?'、':'' %><%= u.title %><% }) %>
+          <div class="sched-warn-hint">タスクの「見積」分を入力すると自動で配置されます。</div>
+        </div>
+      <% } %>
+
+      <div class="sched-timeline" style="height:<%= totalH %>px;">
+        <% for (let h = Math.ceil(spanStart/60); h*60 <= spanEnd; h++) { const top = (h*60 - spanStart) * PX; %>
+          <div class="sched-hour-line" style="top:<%= top %>px;"><span class="sched-hour-label"><%= String(h).padStart(2,'0') %>:00</span></div>
+        <% } %>
+        <% ds.timeline.forEach(function(it){
+             const top = (it.start - spanStart) * PX;
+             const h = Math.max(20, (it.end - it.start) * PX);
+        %>
+          <div class="sched-item sched-<%= it.type %>" style="top:<%= top %>px;height:<%= h %>px;">
+            <span class="sched-item-time"><%= minToTime(it.start) %>–<%= minToTime(it.end) %></span>
+            <span class="sched-item-title"><%= it.title %><% if (it.type === 'task' && it.parts > 1) { %> <span class="sched-part">(<%= it.part %>/<%= it.parts %>)</span><% } %></span>
+          </div>
+        <% }) %>
+        <% if (ds.timeline.length === 0) { %>
+          <div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:var(--gray-400);font-size:13px;">
+            予定とタスクを入れると、ここに1日のスケジュールが表示されます
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

@@ -160,6 +160,9 @@
       <div class="motivation-message"><%= motivationMsg %></div>
     </div>
 
+    <!-- Day Schedule -->
+    <%- include('partials/day-schedule') %>
+
     <div class="grid-2">
       <!-- Left: Task List -->
       <div>
@@ -339,5 +342,6 @@
         .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
     }
   </script>
+  <script src="/js/schedule.js"></script>
 </body>
 </html>

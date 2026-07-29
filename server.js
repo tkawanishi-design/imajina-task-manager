@@ -36,6 +36,7 @@ app.use((req, res, next) => {
     if (m === 0) return h + 'h';
     return h + 'h' + m + 'm';
   };
+  res.locals.minToTime = minToTime;
   next();
 });
 app.use(express.json());
@@ -69,6 +70,130 @@ function prevDayStr(dateStr) {
   const dt = new Date(Date.UTC(y, m - 1, dd));
   dt.setUTCDate(dt.getUTCDate() - 1);
   return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth()+1).padStart(2,'0') + '-' + String(dt.getUTCDate()).padStart(2,'0');
+}
+
+// ===== スケジュール用ヘルパー =====
+// 分(0起点) -> 'HH:MM'
+function minToTime(m) {
+  m = Math.max(0, Math.round(m));
+  return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+}
+// 'H:MM'(全角も可) -> 分。不正なら null
+function timeToMin(str) {
+  const s = String(str == null ? '' : str)
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[：]/g, ':').trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+  if (h > 29 || mm > 59) return null;
+  return h * 60 + mm;
+}
+// 貼り付けテキスト -> 予定配列 [{start,end,title}]
+function parseScheduleText(text) {
+  const events = [];
+  const lines = String(text || '').split(/\r?\n/);
+  for (const raw of lines) {
+    const line = raw
+      .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+      .replace(/[：]/g, ':').trim();
+    if (!line) continue;
+    // 範囲: HH:MM 〜 HH:MM タイトル（区切りは - ~ 〜 – — ― / to）
+    let m = line.match(/^(\d{1,2}:\d{2})\s*(?:[-~〜–—―]|to)\s*(\d{1,2}:\d{2})\s*(.*)$/i);
+    if (m) {
+      const s = timeToMin(m[1]), e = timeToMin(m[2]);
+      if (s != null && e != null && e > s) { events.push({ start: s, end: e, title: (m[3] || '').trim() || '予定' }); continue; }
+    }
+    // 単一時刻: HH:MM タイトル -> 既定60分
+    m = line.match(/^(\d{1,2}:\d{2})\s+(.+)$/) || line.match(/^(\d{1,2}:\d{2})$/);
+    if (m) {
+      const s = timeToMin(m[1]);
+      if (s != null) { events.push({ start: s, end: s + 60, title: (m[2] || '').trim() || '予定' }); continue; }
+    }
+  }
+  return events;
+}
+// 勤務時間・固定予定・タスクから1日のスケジュール（タイムライン）を決定論的に組む
+function buildDaySchedule({ workStart, workEnd, events, tasks }) {
+  const evs = (events || [])
+    .map(e => ({ id: e.id, start: e.start_min, end: e.end_min, title: e.title, kind: e.kind || 'meeting' }))
+    .filter(e => e.end > e.start)
+    .sort((a, b) => a.start - b.start);
+
+  // 勤務時間内にクリップして重なりをマージ -> busy
+  const clipped = [];
+  for (const e of evs) {
+    const s = Math.max(e.start, workStart), en = Math.min(e.end, workEnd);
+    if (en > s) clipped.push([s, en]);
+  }
+  clipped.sort((a, b) => a[0] - b[0]);
+  const busy = [];
+  for (const iv of clipped) {
+    if (busy.length && iv[0] <= busy[busy.length - 1][1]) {
+      busy[busy.length - 1][1] = Math.max(busy[busy.length - 1][1], iv[1]);
+    } else busy.push([iv[0], iv[1]]);
+  }
+  // 空きスロット
+  const free = [];
+  let cur = workStart;
+  for (const b of busy) {
+    if (b[0] > cur) free.push([cur, b[0]]);
+    cur = Math.max(cur, b[1]);
+  }
+  if (cur < workEnd) free.push([cur, workEnd]);
+
+  // 対象タスク（未完了）をリスト順で。dur=残り時間（見積-実績）
+  const queue = [];
+  const unestimated = [];
+  for (const t of (tasks || [])) {
+    if (t.status === 'completed') continue;
+    const est = t.estimated_minutes || 0;
+    if (est <= 0) { unestimated.push({ taskId: t.id, title: t.title }); continue; }
+    const dur = Math.max(1, est - (t.actual_minutes || 0));
+    queue.push({ taskId: t.id, title: t.title, remaining: dur, category: t.category });
+  }
+
+  // 貪欲詰め（会議で分断される場合は分割）
+  const segments = [];
+  const overflow = [];
+  let fi = 0;
+  let slotCursor = free.length ? free[0][0] : workEnd;
+  for (const task of queue) {
+    const parts = [];
+    while (task.remaining > 0 && fi < free.length) {
+      const slotEnd = free[fi][1];
+      if (slotCursor >= slotEnd) { fi++; if (fi < free.length) slotCursor = free[fi][0]; continue; }
+      const use = Math.min(slotEnd - slotCursor, task.remaining);
+      parts.push([slotCursor, slotCursor + use]);
+      slotCursor += use;
+      task.remaining -= use;
+      if (slotCursor >= slotEnd) { fi++; if (fi < free.length) slotCursor = free[fi][0]; }
+    }
+    parts.forEach((p, idx) => segments.push({
+      taskId: task.taskId, title: task.title, start: p[0], end: p[1],
+      category: task.category, part: idx + 1, parts: parts.length
+    }));
+    if (task.remaining > 0) overflow.push({ taskId: task.taskId, title: task.title, minutes: task.remaining });
+  }
+
+  // タイムライン（予定＋タスク断片）を時刻順に
+  const timeline = [];
+  for (const e of evs) timeline.push({ type: e.kind === 'break' ? 'break' : 'event', start: e.start, end: e.end, title: e.title, id: e.id });
+  for (const s of segments) timeline.push({ type: 'task', start: s.start, end: s.end, title: s.title, taskId: s.taskId, part: s.part, parts: s.parts, category: s.category });
+  timeline.sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const spanStart = Math.min(workStart, ...(evs.length ? evs.map(e => e.start) : [workStart]));
+  const spanEnd = Math.max(workEnd, ...(evs.length ? evs.map(e => e.end) : [workEnd]));
+  const freeMinutes = free.reduce((s, f) => s + (f[1] - f[0]), 0);
+  const scheduledMin = segments.reduce((s, seg) => s + (seg.end - seg.start), 0);
+  const overflowMin = overflow.reduce((s, o) => s + o.minutes, 0);
+
+  return {
+    workStart, workEnd, spanStart, spanEnd,
+    events: evs, segments, timeline, overflow, unestimated,
+    freeMinutes, scheduledMin, overflowMin,
+    fits: overflow.length === 0
+  };
 }
 
 function currentPhase() {
@@ -260,7 +385,14 @@ app.get('/member', requireLogin, async (req, res) => {
       }
     }
 
-    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, reports, carryOverCount });
+    // Day schedule (固定予定＋勤務時間からタイムラインを決定論生成)
+    const scheduleEvents = await db.getScheduleEvents(user.id, d);
+    const schedSettings = await db.getScheduleSettings(user.id, d);
+    const workStart = schedSettings ? schedSettings.work_start_min : 480;
+    const workEnd = schedSettings ? schedSettings.work_end_min : 1200;
+    const daySchedule = buildDaySchedule({ workStart, workEnd, events: scheduleEvents, tasks });
+
+    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
@@ -311,7 +443,14 @@ app.get('/manager', requireManager, async (req, res) => {
       const overallProgress = tasks.length > 0 ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
       const reports = await db.getReports(user.id, d);
 
-      return res.render('manager-mytasks', { user, tasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount });
+      // Day schedule
+      const scheduleEvents = await db.getScheduleEvents(user.id, d);
+      const schedSettings = await db.getScheduleSettings(user.id, d);
+      const workStart = schedSettings ? schedSettings.work_start_min : 480;
+      const workEnd = schedSettings ? schedSettings.work_end_min : 1200;
+      const daySchedule = buildDaySchedule({ workStart, workEnd, events: scheduleEvents, tasks });
+
+      return res.render('manager-mytasks', { user, tasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents });
     }
 
     // === Dashboard tab (default) ===
@@ -546,6 +685,51 @@ app.post('/api/reports', requireLogin, async (req, res) => {
     const { report_time, notes } = req.body;
     await db.addReport(req.session.user.id, today(), report_time, notes || '');
     io.emit('report-submitted', { userId: req.session.user.id, date: today(), report_time });
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// ===== Schedule API（自分の予定のみ操作可能）=====
+// テキスト/OCR取り込み（replace=true で当日の予定を差し替え）
+app.post('/api/schedule/import', requireLogin, async (req, res) => {
+  try {
+    const { date, text, replace } = req.body;
+    const d = date || today();
+    const parsed = parseScheduleText(text);
+    if (replace) await db.clearScheduleEvents(req.session.user.id, d);
+    let added = 0;
+    for (const e of parsed) { await db.addScheduleEvent(req.session.user.id, d, e.start, e.end, e.title, 'meeting'); added++; }
+    res.json({ ok: true, added, total: parsed.length });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+// 予定を1件追加
+app.post('/api/schedule/events', requireLogin, async (req, res) => {
+  try {
+    const { date, start, end, title, kind } = req.body;
+    const d = date || today();
+    const s = typeof start === 'number' ? start : timeToMin(start);
+    const en = typeof end === 'number' ? end : timeToMin(end);
+    if (s == null || en == null || en <= s) return res.status(400).json({ error: '時刻が不正です（開始 < 終了）' });
+    const ev = await db.addScheduleEvent(req.session.user.id, d, s, en, (title || '予定').trim() || '予定', kind === 'break' ? 'break' : 'meeting');
+    res.json({ ok: true, event: ev });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+// 予定を1件削除
+app.delete('/api/schedule/events/:id', requireLogin, async (req, res) => {
+  try {
+    await db.deleteScheduleEvent(parseInt(req.params.id), req.session.user.id);
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+// 勤務時間の設定
+app.post('/api/schedule/settings', requireLogin, async (req, res) => {
+  try {
+    const { date, work_start, work_end } = req.body;
+    const d = date || today();
+    const s = typeof work_start === 'number' ? work_start : timeToMin(work_start);
+    const en = typeof work_end === 'number' ? work_end : timeToMin(work_end);
+    if (s == null || en == null || en <= s) return res.status(400).json({ error: '勤務時間が不正です（開始 < 終了）' });
+    await db.setScheduleSettings(req.session.user.id, d, s, en);
     res.json({ ok: true });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });

@@ -73,6 +73,24 @@ async function initDB() {
         created_at TEXT,
         UNIQUE(user_id, date)
       );
+      CREATE TABLE IF NOT EXISTS schedule_events (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        date TEXT NOT NULL,
+        start_min INTEGER NOT NULL,
+        end_min INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        kind TEXT DEFAULT 'meeting',
+        created_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS schedule_settings (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        date TEXT NOT NULL,
+        work_start_min INTEGER DEFAULT 480,
+        work_end_min INTEGER DEFAULT 1200,
+        UNIQUE(user_id, date)
+      );
     `);
 
     // Seed default users if empty
@@ -370,6 +388,41 @@ const db = {
     await pool.query(
       'UPDATE carryover_log SET count = $3 WHERE user_id = $1 AND date = $2',
       [userId, date, count]
+    );
+  },
+
+  // ===== Schedule (固定予定 & 勤務時間設定) =====
+  async getScheduleEvents(userId, date) {
+    const { rows } = await pool.query(
+      'SELECT * FROM schedule_events WHERE user_id = $1 AND date = $2 ORDER BY start_min, end_min',
+      [userId, date]
+    );
+    return rows;
+  },
+  async addScheduleEvent(userId, date, startMin, endMin, title, kind) {
+    const { rows } = await pool.query(
+      'INSERT INTO schedule_events (user_id, date, start_min, end_min, title, kind, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [userId, date, startMin, endMin, title, kind || 'meeting', now()]
+    );
+    return rows[0];
+  },
+  async deleteScheduleEvent(id, userId) {
+    await pool.query('DELETE FROM schedule_events WHERE id = $1 AND user_id = $2', [id, userId]);
+  },
+  async clearScheduleEvents(userId, date) {
+    await pool.query('DELETE FROM schedule_events WHERE user_id = $1 AND date = $2', [userId, date]);
+  },
+  async getScheduleSettings(userId, date) {
+    const { rows } = await pool.query(
+      'SELECT * FROM schedule_settings WHERE user_id = $1 AND date = $2', [userId, date]
+    );
+    return rows[0] || null;
+  },
+  async setScheduleSettings(userId, date, workStartMin, workEndMin) {
+    await pool.query(
+      `INSERT INTO schedule_settings (user_id, date, work_start_min, work_end_min) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (user_id, date) DO UPDATE SET work_start_min = $3, work_end_min = $4`,
+      [userId, date, workStartMin, workEndMin]
     );
   },
 
