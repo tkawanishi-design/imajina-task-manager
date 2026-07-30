@@ -709,19 +709,31 @@ textarea { resize: vertical; min-height: 80px; }
 /* ===== DRAG & DROP ===== */
 .drag-handle {
   cursor: grab;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-size: 18px;
-  padding: 0 6px;
+  padding: 3px 8px;
   user-select: none;
   line-height: 1;
   flex-shrink: 0;
-  transition: color 0.2s;
+  border-radius: 6px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 .drag-handle:hover {
   color: var(--primary);
+  background: var(--gray-200);
+  border-color: var(--gray-300);
 }
 .drag-handle:active {
   cursor: grabbing;
+  background: var(--primary-light);
+}
+.task-list-hint {
+  font-size: 12px;
+  color: var(--gray-500);
+  padding: 10px 16px 0;
+  line-height: 1.5;
 }
 .sortable-ghost {
   opacity: 0.3;
@@ -1198,16 +1210,19 @@ textarea { resize: vertical; min-height: 80px; }
 .sched-warn ul { margin: 4px 0 0 18px; }
 .sched-warn-hint { font-size: 12px; opacity: 0.85; margin-top: 4px; }
 
-.sched-timeline { position: relative; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); overflow: hidden; }
-.sched-hour-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--gray-200); }
-.sched-hour-label { position: absolute; left: 4px; top: -8px; font-size: 10px; color: var(--gray-400); background: var(--gray-50); padding: 0 2px; font-variant-numeric: tabular-nums; }
-.sched-item { position: absolute; left: 46px; right: 6px; border-radius: 6px; padding: 3px 8px; overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; justify-content: center; }
-.sched-item-time { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.9; line-height: 1.2; }
-.sched-item-title { font-size: 12px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sched-item.sched-event { background: #dbeafe; border-left: 3px solid #2563eb; color: #1e3a8a; }
-.sched-item.sched-break { background: var(--gray-200); border-left: 3px solid var(--gray-400); color: var(--gray-600); }
-.sched-item.sched-task { background: #dcfce7; border-left: 3px solid var(--success); color: #14532d; }
-.sched-part { font-weight: 400; opacity: 0.75; font-size: 11px; }
+/* アジェンダ（一覧）形式：どの予定も時刻＋タイトル全文を必ず表示 */
+.sched-agenda { display: flex; flex-direction: column; gap: 6px; max-height: 620px; overflow-y: auto; padding-right: 4px; }
+.sched-empty { text-align: center; color: var(--gray-400); font-size: 13px; padding: 32px 0; }
+.sched-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: 8px; background: #fff; }
+.sched-row-time { flex: 0 0 auto; min-width: 82px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--gray-500); white-space: nowrap; padding-top: 1px; }
+.sched-row-dash { margin: 0 3px; }
+.sched-row-body { flex: 1; min-width: 0; }
+.sched-row-title { font-size: 13px; font-weight: 600; line-height: 1.45; color: var(--gray-800); overflow-wrap: anywhere; }
+.sched-row-meta { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+.sched-row.sched-event { border-left: 4px solid #2563eb; background: #eff5ff; }
+.sched-row.sched-task  { border-left: 4px solid var(--success); background: #f0fdf4; }
+.sched-row.sched-break { border-left: 4px solid var(--gray-400); background: var(--gray-50); }
+.sched-part { font-weight: 400; color: var(--gray-500); font-size: 11px; }
 
 @media (max-width: 820px) {
   .sched-body { flex-direction: column; }

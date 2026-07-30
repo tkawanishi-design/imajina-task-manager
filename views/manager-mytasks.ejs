@@ -184,6 +184,7 @@
           <div class="card-header">
             <h2><%= isToday ? '本日' : isFuture ? '予定' : '' %>のタスク (<%= today %>)</h2>
           </div>
+          <div class="task-list-hint">⠿ をつかんでドラッグすると順番を入れ替えられます（この順番でスケジュールに反映されます）</div>
           <div class="card-body" id="task-list">
             <% if (tasks.length === 0) { %>
               <p style="text-align:center;color:var(--gray-400);padding:40px 0;">タスクを追加してください</p>
