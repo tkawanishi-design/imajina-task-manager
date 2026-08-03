@@ -11,7 +11,13 @@ function schedPost(url, body) {
   }).then(r => r.json());
 }
 
-// テキスト/OCRテキストの取り込み
+// 貼り付けテキストの下書きキー（日付ごと）
+function schedDraftKey() {
+  const el = document.querySelector('.day-schedule');
+  return 'schedDraft:' + (el && el.dataset.date ? el.dataset.date : '');
+}
+
+// テキストの取り込み
 function schedImport(replace) {
   const ta = document.getElementById('sched-import-text');
   const text = (ta && ta.value || '').trim();
@@ -19,6 +25,7 @@ function schedImport(replace) {
   schedPost('/api/schedule/import', { date: schedDate(), text, replace: !!replace })
     .then(d => {
       if (d.ok) {
+        try { sessionStorage.removeItem(schedDraftKey()); } catch (e) {}
         if (d.added === 0) alert('取り込める行がありませんでした。「10:00-10:30 会議名」の形式で入力してください。');
         location.reload();
       } else alert(d.error || '取り込みに失敗しました');
@@ -79,3 +86,20 @@ function schedCopyPrompt(btn) {
     fallback();
   }
 }
+
+// 貼り付けテキストの自動保存・復元（万一リロードされても入力が消えないように）
+document.addEventListener('DOMContentLoaded', function () {
+  const box = document.getElementById('sched-import-text');
+  if (!box) return;
+  const key = schedDraftKey();
+  try {
+    const saved = sessionStorage.getItem(key);
+    if (saved && !box.value.trim()) box.value = saved;
+  } catch (e) {}
+  box.addEventListener('input', function () {
+    try {
+      if (box.value.trim()) sessionStorage.setItem(key, box.value);
+      else sessionStorage.removeItem(key);
+    } catch (e) {}
+  });
+});

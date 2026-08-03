@@ -386,6 +386,20 @@ document.addEventListener('DOMContentLoaded', function() {
   setInterval(check, 30000);
 });
 
+// スケジュール等を入力中かどうか（入力中は自動リロードを抑止して入力消失を防ぐ）
+function isEditingScheduleArea() {
+  var a = document.activeElement;
+  if (!a) return false;
+  if (a.id === 'sched-import-text') return true;
+  return !!(a.closest && a.closest('.day-schedule') && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT'));
+}
+// 個人タスク画面用の安全リロード：自分に関係する更新のみ、かつ入力中でなければ再読み込み
+function safeSocketReload(data, myId) {
+  if (myId != null && data && data.userId != null && Number(data.userId) !== Number(myId)) return;
+  if (isEditingScheduleArea()) return;
+  location.reload();
+}
+
 // スケジュール/タスクのタブ切替（スクロール不要に）
 function showDayTab(name) {
   document.querySelectorAll('.day-pane').forEach(function(p) {

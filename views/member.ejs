@@ -406,7 +406,7 @@
   <script>
     const socket = io();
     socket.emit('join', { userId: <%= user.id %> });
-    socket.on('task-updated', () => location.reload());
+    socket.on('task-updated', (data) => safeSocketReload(data, <%= user.id %>));
     socket.on('comment-added', () => {});
 
     // Sortable drag & drop
