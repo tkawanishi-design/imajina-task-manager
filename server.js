@@ -382,9 +382,9 @@ app.get('/member', requireLogin, async (req, res) => {
     let teamMembers = myTeam ? await db.getTeamMembers(myTeam.id) : [];
     const reports = await db.getReports(user.id, d);
 
-    // Leader: load team members' tasks (read-only view)
+    // 同じチームのメンバーのタスクを読み取り専用で表示（役職に関係なく全員が相互に見られる）
     let teamMemberTasks = [];
-    if ((user.role === 'leader' || user.role === 'manager') && myTeam) {
+    if (myTeam) {
       for (const m of teamMembers) {
         if (m.id === user.id) continue; // skip self
         const mTasks = await db.getTasksByUser(m.id, d);
