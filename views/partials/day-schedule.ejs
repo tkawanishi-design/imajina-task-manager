@@ -91,12 +91,12 @@ HH:MM-HH:MM 予定名
         <% if (ds.timeline.length === 0) { %>
           <div class="sched-empty">予定とタスクを入れると、ここに1日のスケジュールが表示されます</div>
         <% } %>
-        <% ds.timeline.forEach(function(it){ const dur = it.end - it.start; %>
-          <div class="sched-row sched-<%= it.type %>">
+        <% ds.timeline.forEach(function(it){ const dur = it.end - it.start; const isDone = it.type === 'task' && it.done; %>
+          <div class="sched-row sched-<%= it.type %><%= isDone ? ' sched-done' : '' %>">
             <div class="sched-row-time"><%= minToTime(it.start) %><span class="sched-row-dash">–</span><%= minToTime(it.end) %></div>
             <div class="sched-row-body">
-              <div class="sched-row-title"><%= it.title %><% if (it.type === 'task' && it.parts > 1) { %> <span class="sched-part">(<%= it.part %>/<%= it.parts %>)</span><% } %></div>
-              <div class="sched-row-meta"><%= it.type === 'event' ? '会議・予定' : it.type === 'break' ? '休憩' : 'タスク' %> ・ <%= fmtMin(dur) %></div>
+              <div class="sched-row-title"><% if (isDone) { %>✓ <% } %><%= it.title %><% if (it.type === 'task' && it.parts > 1) { %> <span class="sched-part">(<%= it.part %>/<%= it.parts %>)</span><% } %></div>
+              <div class="sched-row-meta"><%= it.type === 'event' ? '会議・予定' : it.type === 'break' ? '休憩' : (isDone ? '完了' : 'タスク') %> ・ <%= fmtMin(dur) %></div>
             </div>
           </div>
         <% }) %>

@@ -142,15 +142,17 @@ function buildDaySchedule({ workStart, workEnd, events, tasks }) {
   }
   if (cur < workEnd) free.push([cur, workEnd]);
 
-  // 対象タスク（未完了）をリスト順で。dur=残り時間（見積-実績）
+  // 対象タスクを計画順(sort_order)で。完了タスクも残して配置（グレー表示）。dur=見積で安定表示
   const queue = [];
   const unestimated = [];
-  for (const t of (tasks || [])) {
-    if (t.status === 'completed') continue;
+  const ordered = (tasks || []).slice().sort((a, b) =>
+    ((a.sort_order || 0) - (b.sort_order || 0)) || ((a.priority || 3) - (b.priority || 3))
+  );
+  for (const t of ordered) {
     const est = t.estimated_minutes || 0;
-    if (est <= 0) { unestimated.push({ taskId: t.id, title: t.title }); continue; }
-    const dur = Math.max(1, est - (t.actual_minutes || 0));
-    queue.push({ taskId: t.id, title: t.title, remaining: dur, category: t.category });
+    const done = t.status === 'completed';
+    if (est <= 0) { if (!done) unestimated.push({ taskId: t.id, title: t.title }); continue; }
+    queue.push({ taskId: t.id, title: t.title, remaining: est, category: t.category, done: done });
   }
 
   // 貪欲詰め（会議で分断される場合は分割）
@@ -171,15 +173,15 @@ function buildDaySchedule({ workStart, workEnd, events, tasks }) {
     }
     parts.forEach((p, idx) => segments.push({
       taskId: task.taskId, title: task.title, start: p[0], end: p[1],
-      category: task.category, part: idx + 1, parts: parts.length
+      category: task.category, part: idx + 1, parts: parts.length, done: task.done
     }));
-    if (task.remaining > 0) overflow.push({ taskId: task.taskId, title: task.title, minutes: task.remaining });
+    if (task.remaining > 0) overflow.push({ taskId: task.taskId, title: task.title, minutes: task.remaining, done: task.done });
   }
 
   // タイムライン（予定＋タスク断片）を時刻順に
   const timeline = [];
   for (const e of evs) timeline.push({ type: e.kind === 'break' ? 'break' : 'event', start: e.start, end: e.end, title: e.title, id: e.id });
-  for (const s of segments) timeline.push({ type: 'task', start: s.start, end: s.end, title: s.title, taskId: s.taskId, part: s.part, parts: s.parts, category: s.category });
+  for (const s of segments) timeline.push({ type: 'task', start: s.start, end: s.end, title: s.title, taskId: s.taskId, part: s.part, parts: s.parts, category: s.category, done: s.done });
   timeline.sort((a, b) => a.start - b.start || a.end - b.end);
 
   const spanStart = Math.min(workStart, ...(evs.length ? evs.map(e => e.start) : [workStart]));
