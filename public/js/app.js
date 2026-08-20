@@ -356,6 +356,65 @@ function uploadAvatar(input, userId) {
     .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
 }
 
+// ===== タスク一括追加（貼り付け） =====
+function taskBulkKey() { return 'taskBulkDraft:' + (getViewDate() || ''); }
+
+function taskBulkImport() {
+  const ta = document.getElementById('task-bulk-text');
+  const text = (ta && ta.value || '').trim();
+  if (!text) { alert('タスクを1行ずつ入力してください'); return; }
+  const viewDate = getViewDate();
+  fetch('/api/tasks/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date: viewDate || undefined, text })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      try { sessionStorage.removeItem(taskBulkKey()); } catch (e) {}
+      if (d.added === 0) alert('追加できるタスクがありませんでした（既に同じ名前がある／空 など）。');
+      location.reload();
+    } else alert(d.error || '追加に失敗しました');
+  }).catch(() => alert('通信エラーが発生しました'));
+}
+
+// テキストをクリップボードにコピー（プロンプト用・共通）
+function copyTextToClipboard(text, btn) {
+  const done = () => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ コピーしました';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+  };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); done(); }
+    catch (e) { alert('コピーに失敗しました。手動で選択してコピーしてください。'); }
+    document.body.removeChild(ta);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
+  else fallback();
+}
+function taskCopyPrompt(btn) {
+  const el = document.getElementById('task-prompt');
+  copyTextToClipboard(el ? el.textContent : '', btn);
+}
+
+// 一括貼り付けの下書き自動保存・復元（リロードで消えないように）
+document.addEventListener('DOMContentLoaded', function () {
+  const box = document.getElementById('task-bulk-text');
+  if (!box) return;
+  const key = taskBulkKey();
+  try { const saved = sessionStorage.getItem(key); if (saved && !box.value.trim()) box.value = saved; } catch (e) {}
+  box.addEventListener('input', function () {
+    try {
+      if (box.value.trim()) sessionStorage.setItem(key, box.value);
+      else sessionStorage.removeItem(key);
+    } catch (e) {}
+  });
+});
+
 // タスク追加後、入力欄に自動フォーカス（IMEリセット対策）
 document.addEventListener('DOMContentLoaded', function() {
   if (sessionStorage.getItem('taskJustAdded')) {
@@ -390,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function isEditingScheduleArea() {
   var a = document.activeElement;
   if (!a) return false;
-  if (a.id === 'sched-import-text') return true;
+  if (a.id === 'sched-import-text' || a.id === 'task-bulk-text') return true;
   return !!(a.closest && a.closest('.day-schedule') && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT'));
 }
 // 個人タスク画面用の安全リロード：自分に関係する更新のみ、かつ入力中でなければ再読み込み

@@ -1,0 +1,26 @@
+<details class="task-bulk">
+  <summary>📋 まとめて追加（1行1タスク・貼り付け）</summary>
+  <div class="task-bulk-body">
+    <div class="sched-prompt-hint">1行に1タスク。末尾に数字を書くとその分が見積になります（例: <code>採用ページ更新 45</code>）。数字なしは0分。既にある同名タスクはスキップされます。</div>
+
+    <details class="sched-prompt-box">
+      <summary>🤖 メモ・議事録からAIで作る（別AIに読ませる用プロンプト）</summary>
+      <div class="sched-prompt-hint">下の「プロンプトをコピー」を押して、ChatGPT / Claude などに<strong>メモや議事録と一緒に</strong>貼り付け → 出てきた結果をこの下の欄に貼り付けて「まとめて追加」を押してください。</div>
+      <pre id="task-prompt" class="sched-prompt-text">次のメモ・議事録から「今日やるべきタスク」を洗い出し、1行につき1タスク、「タスク名 所要分（半角数字）」の形式「だけ」で書き出してください（見出し・説明など他の文章は一切不要です）。
+
+例：
+採用ページ更新 45
+セミナー集客リスト作成 60
+電話対応 15
+
+・所要分が分からないタスクは名前だけでも構いません。
+・タスク名は簡潔に。</pre>
+      <button class="btn btn-sm btn-outline" type="button" onclick="taskCopyPrompt(this)">📋 プロンプトをコピー</button>
+    </details>
+
+    <textarea id="task-bulk-text" class="sched-textarea" rows="5" placeholder="採用ページ更新 45&#10;見積作成 30&#10;セミナー集客リスト作成 60&#10;電話対応"></textarea>
+    <div class="sched-btn-row">
+      <button class="btn btn-sm btn-primary" onclick="taskBulkImport()">まとめて追加</button>
+    </div>
+  </div>
+</details>

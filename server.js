@@ -113,6 +113,21 @@ function parseScheduleText(text) {
   }
   return events;
 }
+// 貼り付けテキスト -> タスク配列 [{title, estimated_minutes}]（1行1タスク・末尾の数字=見積分）
+function parseTaskText(text) {
+  const out = [];
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    let line = raw.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).trim();
+    line = line.replace(/^[-・*•●○◦\s]+/, '').trim(); // 箇条書き記号を除去
+    if (!line) continue;
+    let est = 0, title = line;
+    const m = line.match(/[\s　](\d{1,4})\s*分?$/); // 末尾の「(空白)数字(分)」を見積に
+    if (m) { est = parseInt(m[1], 10); title = line.slice(0, m.index).trim(); }
+    if (!title || /^\d+$/.test(title)) continue; // 空行・数字だけの行はスキップ
+    out.push({ title, estimated_minutes: est });
+  }
+  return out;
+}
 // 勤務時間・固定予定・タスクから1日のスケジュール（タイムライン）を決定論的に組む
 function buildDaySchedule({ workStart, workEnd, events, tasks }) {
   const evs = (events || [])
@@ -636,6 +651,31 @@ app.post('/api/tasks', requireLogin, async (req, res) => {
     if (priority) await db.updateTask(task.id, { priority: parseInt(priority) });
     io.emit('task-updated', { userId: user.id, date: d });
     res.json({ ok: true, task, duplicates: dupes });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// タスクの一括取り込み（1行1タスク・末尾の数字=見積分。既存/重複タイトルはスキップ）
+app.post('/api/tasks/bulk', requireLogin, async (req, res) => {
+  try {
+    const { date, text } = req.body;
+    const d = date || today();
+    const user = req.session.user;
+    const parsed = parseTaskText(text);
+    const existingTasks = await db.getTasksByUser(user.id, d);
+    const existingTitles = new Set(existingTasks.map(t => t.title));
+    const myTeam = await db.getTeamForUser(user.id, d);
+    const seen = new Set();
+    let added = 0;
+    for (const t of parsed) {
+      if (!t.title || existingTitles.has(t.title) || seen.has(t.title)) continue;
+      seen.add(t.title);
+      const category = autoCategory(t.title);
+      const ai_suggestion = generateSuggestion(t.title, t.estimated_minutes);
+      await db.addTask(user.id, myTeam ? myTeam.id : null, d, t.title, category, t.estimated_minutes, ai_suggestion);
+      added++;
+    }
+    if (added > 0) io.emit('task-updated', { userId: user.id, date: d });
+    res.json({ ok: true, added, total: parsed.length });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 

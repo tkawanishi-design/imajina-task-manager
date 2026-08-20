@@ -1239,6 +1239,11 @@ textarea { resize: vertical; min-height: 80px; }
 .sched-prompt-hint { margin: 8px 0; color: var(--gray-500); font-size: 12px; line-height: 1.55; }
 .sched-prompt-text { white-space: pre-wrap; background: #fff; border: 1px solid var(--gray-200); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: var(--gray-700); font-family: inherit; margin: 0 0 8px; max-height: 220px; overflow-y: auto; }
 
+/* タスク一括貼り付け */
+.task-bulk { margin: 10px 16px 4px; border-top: 1px solid var(--gray-100); padding-top: 12px; }
+.task-bulk > summary { cursor: pointer; font-weight: 600; color: var(--gray-600); font-size: 13px; user-select: none; }
+.task-bulk-body { margin-top: 10px; }
+
 /* ===== DAY TABS (スケジュール/タスク 切替) ===== */
 .day-tabs { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .day-tabs-left { display: flex; gap: 8px; }
