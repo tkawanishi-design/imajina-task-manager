@@ -1,13 +1,17 @@
 name: Keep Alive
 
 # Supabase(無料枠)は7日間アクセスがないと自動停止し、Render(無料枠)も15分で寝る。
-# 外部スケジューラ(GitHub Actions)から /health を定期的に叩くことで、
-# Renderを起こし→そのエンドポイントがDBに軽いクエリを投げ、両方をアクティブに保つ。
+# 外部スケジューラ(GitHub Actions)から /health を定期的に叩き、Renderを起こし→
+# そのエンドポイントがDBに軽いクエリを投げ、両方をアクティブに保つ。
+# 業務時間中(JST 7:00-20:00)は10分おきに叩いてRenderを常時起動→コールドスタート502を防止。
+# 夜間・休日はスリープさせ、Supabase停止防止のため終日6時間おきの保険も残す。
+# cronはUTC。JST=UTC+9（JST 7:00-19:59 = UTC 22:00-10:59）。※公開リポジトリのためActions実行時間は無料。
 
 on:
   schedule:
-    - cron: '17 */6 * * *'   # 6時間ごと(UTC)。停止まで7日あるので十分な余裕
-  workflow_dispatch:          # 手動実行も可能
+    - cron: '17 */6 * * *'          # 終日6時間おき：Supabase自動停止(7日)の防止(保険)
+    - cron: '*/10 22,23,0-10 * * *'  # JST 7:00-19:59 を10分おき：Renderを起こし続けて502防止
+  workflow_dispatch:                 # 手動実行も可能
 
 jobs:
   ping:
