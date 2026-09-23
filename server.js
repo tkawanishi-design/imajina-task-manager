@@ -738,8 +738,7 @@ app.get('/api/day-summary', requireLogin, async (req, res) => {
   try {
     const d = req.query.date || today();
     const user = req.session.user;
-    const tasks = await db.getTasksByUser(user.id, d);
-    const events = await db.getScheduleEvents(user.id, d);
+    const [tasks, events] = await Promise.all([db.getTasksByUser(user.id, d), db.getScheduleEvents(user.id, d)]);
     res.json({ ok: true, date: d, name: user.name, ...buildDaySummary(tasks, events) });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });

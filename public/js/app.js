@@ -790,14 +790,36 @@ function escHtml(s) {
 }
 const DS_COLORS = ['#2563eb', '#059669', '#d97706', '#db2777', '#7c3aed', '#0891b2', '#65a30d', '#dc2626', '#4b5563', '#ca8a04', '#0d9488', '#9333ea'];
 
+// 押した瞬間に「集計中」を出す（サーバー応答まで数秒かかっても、反応が無いと感じさせない）
+function showDaySummaryLoading() {
+  closeDaySummary();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay active ds-overlay';
+  overlay.id = 'day-summary-modal';
+  overlay.innerHTML = '<div class="modal ds-modal" role="dialog" aria-modal="true" aria-busy="true" aria-label="今日のふり返りを集計中">'
+    + '<div class="ds-hero"><div class="ds-emoji">🍵</div><h3>今日のふり返りを集計しています…</h3>'
+    + '<div class="ds-spinner" aria-hidden="true"></div></div></div>';
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeDaySummary(); });
+  document.body.appendChild(overlay);
+  document.addEventListener('keydown', dsEscHandler);
+}
+
 function openDaySummary() {
   const btn = document.getElementById('day-end-btn');
   if (btn) btn.disabled = true;
+  showDaySummaryLoading();
   const date = getViewDate();
   const fetchSummary = () => fetch('/api/day-summary' + (date ? '?date=' + encodeURIComponent(date) : ''))
     .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-    .then(d => { if (!d.ok) throw new Error(); renderDaySummary(d); })
-    .catch(() => toast('ふり返りの取得に失敗しました。もう一度お試しください', { type: 'error', duration: 3000 }))
+    .then(d => {
+      if (!d.ok) throw new Error();
+      // 集計中に閉じられていたら出さない
+      if (document.getElementById('day-summary-modal')) renderDaySummary(d);
+    })
+    .catch(() => {
+      closeDaySummary();
+      toast('ふり返りの取得に失敗しました。もう一度お試しください', { type: 'error', duration: 3000 });
+    })
     .finally(() => { if (btn) btn.disabled = false; });
   // 保存中の変更・削除待ちを確定させてから集計する
   Promise.all(Array.from(inflightSaves))
