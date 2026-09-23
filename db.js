@@ -91,6 +91,17 @@ async function initDB() {
         work_end_min INTEGER DEFAULT 1200,
         UNIQUE(user_id, date)
       );
+      CREATE TABLE IF NOT EXISTS daily_moods (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        date TEXT NOT NULL,
+        mood INTEGER NOT NULL,
+        comment TEXT DEFAULT '',
+        comment_private INTEGER DEFAULT 0,
+        created_at TEXT,
+        updated_at TEXT,
+        UNIQUE(user_id, date)
+      );
     `);
 
     // Seed default users if empty
@@ -453,6 +464,81 @@ const db = {
       'UPDATE users SET force_leave_enabled = $2, force_leave_time = $3 WHERE id = $1',
       [userId, enabled ? 1 : 0, time || '20:00']
     );
+  },
+
+  // ===== 気分日記（1日1件。UNIQUE(user_id,date)で上書き保存） =====
+  async getMood(userId, date) {
+    const { rows } = await pool.query('SELECT * FROM daily_moods WHERE user_id = $1 AND date = $2', [userId, date]);
+    return rows[0] || null;
+  },
+  async upsertMood(userId, date, mood, comment, commentPrivate) {
+    const { rows } = await pool.query(
+      `INSERT INTO daily_moods (user_id, date, mood, comment, comment_private, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $6)
+       ON CONFLICT (user_id, date) DO UPDATE SET mood = $3, comment = $4, comment_private = $5, updated_at = $6
+       RETURNING *`,
+      [userId, date, mood, comment || '', commentPrivate ? 1 : 0, now()]
+    );
+    return rows[0];
+  },
+  async getMoodsByUser(userId, from, to) {
+    const { rows } = await pool.query(
+      'SELECT * FROM daily_moods WHERE user_id = $1 AND date >= $2 AND date <= $3 ORDER BY date',
+      [userId, from, to]
+    );
+    return rows;
+  },
+  // 期間内の全員分（マネージャー用。マネージャー同士の気分は含めない）
+  async getMoodsInRange(from, to) {
+    const { rows } = await pool.query(
+      `SELECT m.* FROM daily_moods m JOIN users u ON u.id = m.user_id
+       WHERE m.date >= $1 AND m.date <= $2 AND u.role != 'manager' ORDER BY m.date`,
+      [from, to]
+    );
+    return rows;
+  },
+  // リーダー用：その日に自分がリーダーを務めたチームのメンバーの記録だけを返す
+  async getMoodsLedBy(leaderId, from, to, userId) {
+    const params = [leaderId, from, to];
+    let extra = '';
+    if (userId) { params.push(userId); extra = ' AND m.user_id = $4'; }
+    const { rows } = await pool.query(
+      `SELECT m.* FROM daily_moods m
+       WHERE m.date >= $2 AND m.date <= $3 AND m.user_id != $1${extra}
+         AND EXISTS (SELECT 1 FROM teams t JOIN team_members tm ON tm.team_id = t.id
+                     WHERE t.leader_id = $1 AND t.date = m.date AND tm.user_id = m.user_id)
+       ORDER BY m.date`,
+      params
+    );
+    return rows;
+  },
+  // リーダー用：期間内に自分のチームに入ったことのあるメンバー
+  async getUsersLedBy(leaderId, from, to) {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT u.* FROM users u
+       JOIN team_members tm ON tm.user_id = u.id
+       JOIN teams t ON t.id = tm.team_id
+       WHERE t.leader_id = $1 AND t.date >= $2 AND t.date <= $3 AND u.id != $1 AND u.active = 1
+       ORDER BY u.name`,
+      [leaderId, from, to]
+    );
+    return rows;
+  },
+  // リーダー用：自分が担当した (メンバー, 日付) の組
+  async getLedPairs(leaderId, from, to) {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT tm.user_id, t.date FROM teams t JOIN team_members tm ON tm.team_id = t.id
+       WHERE t.leader_id = $1 AND t.date >= $2 AND t.date <= $3 AND tm.user_id != $1`,
+      [leaderId, from, to]
+    );
+    return rows;
+  },
+  async getMoodsByDate(date, userIds) {
+    if (!userIds || userIds.length === 0) return [];
+    const { rows } = await pool.query(
+      'SELECT * FROM daily_moods WHERE date = $1 AND user_id = ANY($2::int[])', [date, userIds]
+    );
+    return rows;
   },
 
   // Duplicate detection

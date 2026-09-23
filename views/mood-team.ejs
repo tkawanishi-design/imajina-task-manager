@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>チームの気分 - imajina Task Manager</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="header">
+    <img src="/img/imajina_logo_K0.png" alt="imajina" class="header-logo">
+    <div class="header-right">
+      <a href="<%= isManager ? '/manager' : '/member' %>" class="btn-logout">← <%= isManager ? 'ダッシュボードに戻る' : 'タスクに戻る' %></a>
+      <div class="header-user">
+        <%- avatarHtml(user, 'sm') %>
+        <span class="user-name"><%= user.name %></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="container mood-page">
+    <% if (isManager) { %>
+      <%- include('partials/manager-tabs', { activeTab: 'mood', selectedDate: selectedDate }) %>
+    <% } %>
+
+    <div class="mood-head">
+      <div class="mood-head-title">
+        <div>
+          <h1>👥 チームの気分</h1>
+          <p class="mood-sub">
+            <% if (isManager) { %>マネージャー以外の全メンバーの、毎日の気分とひとこと日記です。
+            <% } else { %>あなたが担当リーダーだった日のメンバーの気分です（それ以外の日は「・」で表示）。<% } %>
+            本人が「自分だけ」にしたコメントは表示されません。
+          </p>
+        </div>
+      </div>
+      <a href="/mood" class="btn btn-sm btn-outline">📅 自分の気分の記録</a>
+    </div>
+
+    <div class="mood-toolbar">
+      <div class="mood-nav">
+        <a class="date-nav-btn" href="/mood/team?month=<%= prevMonth %>" aria-label="前の月">◀</a>
+        <span class="mood-range"><%= monthLabel %></span>
+        <a class="date-nav-btn" href="/mood/team?month=<%= nextMonth %>" aria-label="次の月">▶</a>
+        <% if (!isCurrentMonth) { %><a class="btn btn-sm btn-outline" href="/mood/team">今月へ</a><% } %>
+      </div>
+      <div class="mood-legend" aria-label="凡例">
+        <% [5,4,3,2,1].forEach(v => { %><span><%- moodFace(v, 18) %><%= moodLabel(v) %></span><% }) %>
+        <span><%- moodFace(0, 18) %>未記録</span>
+      </div>
+    </div>
+
+    <% if (follows.length) { %>
+    <div class="mood-follow">
+      <h3>🤝 声をかけたいメンバー</h3>
+      <ul>
+        <% follows.forEach(r => { %>
+          <li><a href="/mood?user=<%= r.user.id %>&date=<%= month %>-01"><%= r.user.name %>さん</a>：<%= r.follow %></li>
+        <% }) %>
+      </ul>
+      <p>気分が落ち込み気味のサインです。評価や指摘ではなく「最近どう？」と、まずは話を聞くところから声をかけてみてください。</p>
+    </div>
+    <% } %>
+
+    <div class="card mood-cell-detail" id="mt-detail" hidden aria-live="polite"></div>
+
+    <% if (rows.length === 0) { %>
+      <div class="card mood-box"><p class="ds-muted"><%= isManager ? 'メンバーがいません。' : 'この月にあなたが担当リーダーを務めたチームのメンバーはいません。' %></p></div>
+    <% } else { %>
+    <div class="card mt-scroll">
+      <table class="mt-grid">
+        <thead>
+          <tr>
+            <th class="mt-name" scope="col">メンバー</th>
+            <% days.forEach(d => { %>
+              <th scope="col" class="dow-<%= d.dow %><%= d.isToday ? ' is-today' : '' %>"><span><%= d.day %></span><small><%= ['日','月','火','水','木','金','土'][d.dow] %></small></th>
+            <% }) %>
+            <th scope="col" class="mt-avg">平均</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach(r => { %>
+            <tr class="<%= r.follow ? 'is-follow' : '' %>">
+              <th class="mt-name" scope="row">
+                <a href="/mood?user=<%= r.user.id %>&date=<%= month %>-01" title="<%= r.user.name %>さんの気分の記録を見る">
+                  <%- avatarHtml(r.user, 'sm') %><span><%= r.user.name %></span>
+                </a>
+              </th>
+              <% days.forEach(d => { const e = r.byDate[d.date]; %>
+                <% if (!r.visible(d.date)) { %>
+                  <td class="mt-na dow-<%= d.dow %>" title="担当外の日">・</td>
+                <% } else if (e) { %>
+                  <td class="dow-<%= d.dow %><%= d.isToday ? ' is-today' : '' %>">
+                    <button type="button" class="mt-cell" data-name="<%= r.user.name %>" data-label="<%= d.label %>" data-mood="<%= e.mood %>" data-comment="<%= e.comment %>"
+                      aria-label="<%= r.user.name %> <%= d.label %> <%= moodLabel(e.mood) %>"><%- moodFace(e.mood, 22) %><% if (e.comment) { %><i class="mt-note" aria-hidden="true"></i><% } %></button>
+                  </td>
+                <% } else { %>
+                  <td class="mt-empty dow-<%= d.dow %><%= d.isToday ? ' is-today' : '' %>"></td>
+                <% } %>
+              <% }) %>
+              <td class="mt-avg"><% if (r.stats.avg) { %><span style="color:<%= moodColor(Math.round(r.stats.avg)) %>">●</span> <%= r.stats.avg.toFixed(1) %><% } else { %>–<% } %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <p class="mood-hint">顔をクリックすると、その日のひとことが表示されます。名前をクリックすると、その人の週・月の記録が見られます。</p>
+    <% } %>
+  </div>
+
+  <script src="/js/mood.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    (function () {
+      var box = document.getElementById('mt-detail');
+      document.addEventListener('click', function (ev) {
+        var c = ev.target.closest && ev.target.closest('.mt-cell');
+        if (!c || !box) return;
+        document.querySelectorAll('.mt-cell.is-sel').forEach(function (x) { x.classList.remove('is-sel'); });
+        c.classList.add('is-sel');
+        var v = parseInt(c.dataset.mood, 10);
+        box.innerHTML = '<button type="button" class="mt-detail-close" aria-label="閉じる">×</button>'
+          + '<div class="mood-detail-view">' + Mood.face(v, 40)
+          + '<div><div class="mt-detail-head"></div><b></b><p class="mood-detail-comment"></p></div></div>';
+        box.querySelector('.mt-detail-head').textContent = c.dataset.name + ' ・ ' + c.dataset.label;
+        box.querySelector('b').textContent = Mood.label(v);
+        var cm = box.querySelector('.mood-detail-comment');
+        cm.textContent = c.dataset.comment || 'コメントはありません';
+        if (!c.dataset.comment) cm.classList.add('ds-muted');
+        box.hidden = false;
+        box.querySelector('.mt-detail-close').onclick = function () { box.hidden = true; c.classList.remove('is-sel'); };
+        if (box.getBoundingClientRect().top < 60) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    })();
+  </script>
+</body>
+</html>

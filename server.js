@@ -6,6 +6,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const db = require('./db');
+const Mood = require('./public/js/mood.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Avatar: use memory storage, convert to base64 for DB
@@ -37,6 +38,9 @@ app.use((req, res, next) => {
     return h + 'h' + m + 'm';
   };
   res.locals.minToTime = minToTime;
+  res.locals.moodFace = Mood.face;
+  res.locals.moodLabel = Mood.label;
+  res.locals.moodColor = Mood.color;
   next();
 });
 app.use(express.json());
@@ -378,6 +382,79 @@ function buildDaySummary(tasks, events) {
   };
 }
 
+// ===== 気分日記 =====
+const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
+function parseYMD(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCMonth() === +m[2] - 1 ? d : null;
+}
+function ymd(d) { return d.toISOString().slice(0, 10); }
+function addDaysStr(s, n) { const d = parseYMD(s); d.setUTCDate(d.getUTCDate() + n); return ymd(d); }
+function mdLabel(s) { const d = parseYMD(s); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + '(' + DOW_JA[d.getUTCDay()] + ')'; }
+
+// 本人以外が見るときは「自分だけ」にしたコメントを消す（判定は必ずサーバー側で行う）
+function moodForViewer(e, isSelf) {
+  if (!e) return null;
+  const hide = !isSelf && e.comment_private;
+  const out = { date: e.date, mood: e.mood, comment: hide ? '' : (e.comment || '') };
+  if (isSelf) out.comment_private = e.comment_private ? 1 : 0;
+  return out;
+}
+
+// 期間内の記録の集計（記録日数・平均・分布・いちばん多い気分）
+function buildMoodStats(entries) {
+  const dist = [0, 0, 0, 0, 0, 0];
+  entries.forEach(e => { if (e.mood >= 1 && e.mood <= 5) dist[e.mood]++; });
+  const count = entries.length;
+  const avg = count ? Math.round(entries.reduce((s, e) => s + e.mood, 0) * 10 / count) / 10 : null;
+  let top = 0;
+  for (let v = 5; v >= 1; v--) if (dist[v] > 0 && dist[v] > (top ? dist[top] : 0)) top = v; // 同数なら良い方
+  return { count, avg, dist, top };
+}
+
+// 気分の推移グラフ（SVG座標を決定論で計算）
+function buildMoodChart(entries, from, to, view) {
+  const W = 440, H = 240, padL = 34, padR = 12, padT = 14, padB = 28;
+  const days = [];
+  for (let s = from; s <= to; s = addDaysStr(s, 1)) days.push(s);
+  const n = days.length;
+  const xAt = i => padL + (n <= 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (n - 1));
+  const yAt = v => padT + (5 - v) * (H - padT - padB) / 4;
+  const idx = new Map(days.map((d, i) => [d, i]));
+  const points = entries.filter(e => idx.has(e.date))
+    .map(e => ({ x: +xAt(idx.get(e.date)).toFixed(1), y: +yAt(e.mood).toFixed(1), v: e.mood, date: e.date }));
+  const path = points.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join(' ');
+  const xLabels = days.map((d, i) => {
+    const dt = parseYMD(d), day = dt.getUTCDate();
+    if (view === 'week') return { x: +xAt(i).toFixed(1), text: day + '(' + DOW_JA[dt.getUTCDay()] + ')' };
+    return (day === 1 || day % 5 === 0 || i === n - 1) ? { x: +xAt(i).toFixed(1), text: String(day) } : null;
+  }).filter(Boolean);
+  const yLevels = [5, 4, 3, 2, 1].map(v => ({ v, y: +yAt(v).toFixed(1) }));
+  return { W, H, padL, padR, padT, padB, points, path, xLabels, yLevels };
+}
+
+// 上司向け：フォローしたほうがよさそうなサイン（直近1週間で「悪い」以下が2日以上／直近の記録が「最悪」）
+function moodFollowReason(entries, endDate) {
+  const from = addDaysStr(endDate, -6);
+  const recent = entries.filter(e => e.date >= from && e.date <= endDate);
+  const low = recent.filter(e => e.mood <= 2);
+  const last = recent[recent.length - 1];
+  if (low.length >= 2) return '直近1週間で「悪い」以下が' + low.length + '日';
+  if (last && last.mood === 1) return mdLabel(last.date) + 'に「最悪」';
+  return null;
+}
+
+// 他人の気分を見られるか（マネージャー=マネージャー以外の全員／それ以外=自分が担当リーダーだった日の記録だけ）
+async function moodAccess(viewer, targetId) {
+  if (targetId === viewer.id) return { ok: true, self: true, target: viewer };
+  const target = await db.getUserById(targetId);
+  if (!target || target.active === 0) return { ok: false };
+  if (viewer.role === 'manager') return { ok: target.role !== 'manager', target, mode: 'all' };
+  return { ok: true, target, mode: 'led' };
+}
+
 function autoCategory(title) {
   if (/メール|返信|送付/.test(title)) return 'メール対応';
   if (/資料|提案書|レポート|報告/.test(title)) return '資料作成';
@@ -499,7 +576,16 @@ app.get('/member', requireLogin, async (req, res) => {
     const forceLeaveEnabled = meFresh && meFresh.force_leave_enabled ? 1 : 0;
     const forceLeaveTime = (meFresh && meFresh.force_leave_time) || '20:00';
 
-    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents, forceLeaveEnabled, forceLeaveTime });
+    // その日の担当リーダーにだけ、チームメンバーの気分を表示（同じチームのメンバー同士には見せない）
+    const isTeamLeader = !!(myTeam && myTeam.leader_id === user.id);
+    const teamMoodMap = {};
+    if (isTeamLeader && teamMemberTasks.length) {
+      const ms = await db.getMoodsByDate(d, teamMemberTasks.map(mt => mt.user.id));
+      ms.forEach(e => { teamMoodMap[e.user_id] = moodForViewer(e, false); });
+    }
+    const showTeamMoodLink = user.role === 'leader' || isTeamLeader;
+
+    res.render('member', { user, tasks, myTeam, teamMembers, teamMemberTasks, totalEst, totalActual, overallProgress, phase: currentPhase(), today: d, selectedDate: d, reports, carryOverCount, daySchedule, scheduleEvents, forceLeaveEnabled, forceLeaveTime, isTeamLeader, teamMoodMap, showTeamMoodLink });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
@@ -619,7 +705,12 @@ app.get('/manager', requireManager, async (req, res) => {
       }
     }
 
-    res.render('manager', { user: req.session.user, teams: teamData, allUsers, alerts, phase, selectedDate: d, today: today(), activeTab: 'dashboard' });
+    // メンバーのその日の気分（名前の横に表示。マネージャー同士の気分は出さない）
+    const moodMap = {};
+    const dashIds = [...new Set(teamData.flatMap(td => td.memberTasks.map(mt => mt.user.id)))];
+    (await db.getMoodsByDate(d, dashIds)).forEach(e => { moodMap[e.user_id] = moodForViewer(e, false); });
+
+    res.render('manager', { user: req.session.user, teams: teamData, allUsers, alerts, phase, selectedDate: d, today: today(), activeTab: 'dashboard', moodMap });
   } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
@@ -738,9 +829,117 @@ app.get('/api/day-summary', requireLogin, async (req, res) => {
   try {
     const d = req.query.date || today();
     const user = req.session.user;
-    const [tasks, events] = await Promise.all([db.getTasksByUser(user.id, d), db.getScheduleEvents(user.id, d)]);
-    res.json({ ok: true, date: d, name: user.name, ...buildDaySummary(tasks, events) });
+    const [tasks, events, mood] = await Promise.all([
+      db.getTasksByUser(user.id, d), db.getScheduleEvents(user.id, d), db.getMood(user.id, d)]);
+    res.json({ ok: true, date: d, name: user.name, ...buildDaySummary(tasks, events),
+      mood: moodForViewer(mood, true), canRecordMood: d <= today() });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// 気分日記の記録（1日1件・同じ日は上書き。未来日は不可）
+app.post('/api/moods', requireLogin, async (req, res) => {
+  try {
+    const user = req.session.user;
+    const d = String(req.body.date || today());
+    if (!parseYMD(d)) return res.status(400).json({ error: '日付が不正です' });
+    if (d > today()) return res.status(400).json({ error: '未来の日の気分は記録できません' });
+    const mood = parseInt(req.body.mood, 10);
+    if (!(mood >= 1 && mood <= 5)) return res.status(400).json({ error: '気分を選んでください' });
+    const comment = String(req.body.comment || '').slice(0, 500);
+    const row = await db.upsertMood(user.id, d, mood, comment, !!req.body.commentPrivate);
+    res.json({ ok: true, mood: moodForViewer(row, true) });
+  } catch (e) { console.error(e); res.status(500).json({ error: '保存に失敗しました' }); }
+});
+
+// 気分の記録（週・月）。?user= で上司が部下の記録を見る
+app.get('/mood', requireLogin, async (req, res) => {
+  try {
+    const viewer = req.session.user;
+    const targetId = req.query.user ? parseInt(req.query.user, 10) : viewer.id;
+    if (!targetId) return res.status(400).send('ユーザーが不正です');
+    const acc = await moodAccess(viewer, targetId);
+    if (!acc.ok) return res.status(403).send('この人の気分の記録を見る権限がありません');
+    const t = today();
+    const view = req.query.view === 'week' ? 'week' : 'month';
+    const anchor = parseYMD(req.query.date) ? req.query.date : t;
+    const a = parseYMD(anchor);
+    let from, to, prevAnchor, nextAnchor, rangeLabel, lead = 0;
+    if (view === 'week') {
+      from = addDaysStr(anchor, -((a.getUTCDay() + 6) % 7)); // 月曜始まり
+      to = addDaysStr(from, 6);
+      prevAnchor = addDaysStr(from, -7);
+      nextAnchor = addDaysStr(from, 7);
+      rangeLabel = mdLabel(from) + ' 〜 ' + mdLabel(to);
+    } else {
+      const y = a.getUTCFullYear(), m = a.getUTCMonth();
+      from = ymd(new Date(Date.UTC(y, m, 1)));
+      to = ymd(new Date(Date.UTC(y, m + 1, 0)));
+      prevAnchor = ymd(new Date(Date.UTC(y, m - 1, 1)));
+      nextAnchor = ymd(new Date(Date.UTC(y, m + 1, 1)));
+      rangeLabel = y + '年' + (m + 1) + '月';
+      lead = (parseYMD(from).getUTCDay() + 6) % 7;
+    }
+    const raw = acc.mode === 'led'
+      ? await db.getMoodsLedBy(viewer.id, from, to, targetId)
+      : await db.getMoodsByUser(targetId, from, to);
+    const entries = raw.map(e => moodForViewer(e, !!acc.self));
+    const byDate = {};
+    entries.forEach(e => { byDate[e.date] = e; });
+    const days = [];
+    for (let s = from; s <= to; s = addDaysStr(s, 1)) {
+      const dt = parseYMD(s);
+      days.push({ date: s, day: dt.getUTCDate(), dow: dt.getUTCDay(), label: mdLabel(s), isToday: s === t, isFuture: s > t, entry: byDate[s] || null });
+    }
+    const sel = (parseYMD(req.query.sel) && req.query.sel >= from && req.query.sel <= to) ? req.query.sel
+      : (t >= from && t <= to ? t : null);
+    const backUrl = acc.self ? (viewer.role === 'manager' ? '/manager?tab=mytasks' : '/member') : '/mood/team';
+    res.render('mood', {
+      user: viewer, target: acc.target, isSelf: !!acc.self, view, anchor, from, to, prevAnchor, nextAnchor,
+      rangeLabel, lead, days, stats: buildMoodStats(entries), chart: buildMoodChart(entries, from, to, view),
+      entriesDesc: entries.slice().reverse(), byDate, sel, today: t, backUrl, mdLabel
+    });
+  } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
+});
+
+// チームの気分（上司用の月間一覧）。マネージャー=全員／それ以外=自分が担当リーダーだった日のメンバー
+app.get('/mood/team', requireLogin, async (req, res) => {
+  try {
+    const viewer = req.session.user;
+    const t = today();
+    let month = /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month || '') ? req.query.month : t.slice(0, 7);
+    const [y, m] = month.split('-').map(Number);
+    const from = ymd(new Date(Date.UTC(y, m - 1, 1)));
+    const to = ymd(new Date(Date.UTC(y, m, 0)));
+    const isManager = viewer.role === 'manager';
+    let users, raw, ledPairs = null;
+    if (isManager) {
+      [users, raw] = await Promise.all([db.getAllUsers(), db.getMoodsInRange(from, to)]);
+      users = users.filter(u => u.role !== 'manager');
+    } else {
+      [users, raw, ledPairs] = await Promise.all([
+        db.getUsersLedBy(viewer.id, from, to), db.getMoodsLedBy(viewer.id, from, to), db.getLedPairs(viewer.id, from, to)]);
+    }
+    const ledSet = ledPairs ? new Set(ledPairs.map(p => p.user_id + '|' + p.date)) : null;
+    const days = [];
+    for (let s = from; s <= to; s = addDaysStr(s, 1)) {
+      const dt = parseYMD(s);
+      days.push({ date: s, day: dt.getUTCDate(), dow: dt.getUTCDay(), label: mdLabel(s), isToday: s === t, isFuture: s > t });
+    }
+    const endDate = t < to ? t : to;
+    const rows = users.map(u => {
+      const es = raw.filter(e => e.user_id === u.id).map(e => moodForViewer(e, false));
+      const byDate = {};
+      es.forEach(e => { byDate[e.date] = e; });
+      return { user: u, byDate, stats: buildMoodStats(es), follow: moodFollowReason(es, endDate),
+        visible: s => !ledSet || ledSet.has(u.id + '|' + s) };
+    });
+    const pm = new Date(Date.UTC(y, m - 2, 1)), nm = new Date(Date.UTC(y, m, 1));
+    res.render('mood-team', {
+      user: viewer, rows, days, follows: rows.filter(r => r.follow), isManager,
+      month, monthLabel: y + '年' + m + '月', prevMonth: ymd(pm).slice(0, 7), nextMonth: ymd(nm).slice(0, 7),
+      isCurrentMonth: month === t.slice(0, 7), selectedDate: t, today: t
+    });
+  } catch (e) { console.error(e); res.status(500).send('エラーが発生しました'); }
 });
 
 // タスクの一括取り込み（1行1タスク・末尾の数字=見積分。既存/重複タイトルはスキップ）

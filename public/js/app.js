@@ -856,6 +856,10 @@ function renderDaySummary(d) {
       + (d.usedEstimate ? '<div class="ds-muted ds-small">※実績が未入力のタスクは「見積×進捗」で推定しています</div>' : '');
   }
   const tips = (d.suggestions || []).map(t => `<li>${escHtml(t)}</li>`).join('');
+  // 気分日記（1日の終わりに気分とひとこと）。未来日は記録できないので出さない
+  const moodHtml = (d.canRecordMood && window.MoodUI)
+    ? `<section class="ds-sec ds-mood">${MoodUI.pickerHtml(d.date, d.mood, { question: '今日の気分は？' })}<a class="ds-mood-link" href="/mood">📅 これまでの気分を見る（週・月）</a></section>`
+    : '';
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay active ds-overlay';
   overlay.id = 'day-summary-modal';
@@ -866,6 +870,7 @@ function renderDaySummary(d) {
       <h3 id="ds-title">${escHtml(d.name)}さん、今日もお疲れさまでした</h3>
       <div class="ds-date">${escHtml(d.date)} のふり返り</div>
     </div>
+    ${moodHtml}
     <div class="ds-stats">
       <div><b>${d.completed}<small>/${d.total}</small></b><span>完了タスク</span></div>
       <div><b>${f(d.catTotal - d.meetingMin)}</b><span>作業時間</span></div>
@@ -880,11 +885,12 @@ function renderDaySummary(d) {
   document.body.appendChild(overlay);
   document.addEventListener('keydown', dsEscHandler);
   const closeBtn = overlay.querySelector('.ds-foot .btn');
-  if (closeBtn) closeBtn.focus();
+  if (closeBtn) closeBtn.focus({ preventScroll: true }); // 先頭の「今日の気分」が見えたままにする
 }
 function dsEscHandler(e) { if (e.key === 'Escape') closeDaySummary(); }
 function closeDaySummary() {
   const m = document.getElementById('day-summary-modal');
+  if (m && window.MoodUI) MoodUI.flush(m); // 書きかけのひとことを取りこぼさない
   if (m) m.remove();
   document.removeEventListener('keydown', dsEscHandler);
 }

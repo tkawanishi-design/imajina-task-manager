@@ -190,6 +190,8 @@
                       <%= mt.user.name %>
                       <% if (mt.user.id === td.team.leader_id) { %><span style="font-size:10px;background:var(--gray-700);color:white;padding:1px 6px;border-radius:4px;font-weight:600;letter-spacing:0.5px;">L</span><% } %>
                     </span>
+                    <% const mm = (typeof moodMap !== 'undefined' && mt.user.role !== 'manager') ? moodMap[mt.user.id] : null; %>
+                    <% if (mm) { %><a class="mood-chip" href="/mood?user=<%= mt.user.id %>&sel=<%= selectedDate %>" onclick="event.stopPropagation();" title="今日の気分：<%= moodLabel(mm.mood) %><%= mm.comment ? '｜' + mm.comment : '' %>"><%- moodFace(mm.mood, 22) %></a><% } %>
                   </div>
                   <div class="member-progress-inline">
                     <div class="member-progress-fill <%= mt.progress < 30 ? 'low' : mt.progress < 70 ? 'mid' : 'high' %>" style="width:<%= mt.progress %>%"></div>

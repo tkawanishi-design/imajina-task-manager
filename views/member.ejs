@@ -31,6 +31,7 @@
         </label>
         <span class="user-name"><%= user.name %></span>
       </div>
+      <a href="/mood" class="btn-logout header-mood-link" title="気分の記録（週・月）">😊 気分</a>
       <a href="/logout" class="btn-logout">ログアウト</a>
     </div>
   </div>
@@ -266,7 +267,10 @@
     <!-- Leader: Team Member Tasks (read-only) -->
     <% if (teamMemberTasks && teamMemberTasks.length > 0) { %>
     <div style="margin-top:24px;">
-      <h2 style="font-size:18px;font-weight:700;margin-bottom:16px;color:var(--gray-800);">👥 チームメンバーのタスク状況</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <h2 style="font-size:18px;font-weight:700;color:var(--gray-800);">👥 チームメンバーのタスク状況</h2>
+        <% if (showTeamMoodLink) { %><a href="/mood/team" class="btn btn-sm btn-outline">😊 チームの気分を見る</a><% } %>
+      </div>
       <% teamMemberTasks.forEach(mt => { %>
         <div class="member-card" style="margin-bottom:16px;">
           <div class="member-card-header" onclick="this.nextElementSibling.classList.toggle('open')">
@@ -274,6 +278,8 @@
               <div class="member-name-with-avatar">
                 <%- avatarHtml(mt.user, 'sm') %>
                 <span class="member-name"><%= mt.user.name %></span>
+                <% const mm = isTeamLeader ? teamMoodMap[mt.user.id] : null; %>
+                <% if (mm) { %><a class="mood-chip" href="/mood?user=<%= mt.user.id %>&sel=<%= selectedDate %>" onclick="event.stopPropagation();" title="気分：<%= moodLabel(mm.mood) %><%= mm.comment ? '｜' + mm.comment : '' %>"><%- moodFace(mm.mood, 22) %></a><% } %>
               </div>
               <div class="leader-progress-bar-inline">
                 <div class="leader-progress-fill <%= mt.progress < 30 ? 'low' : mt.progress < 70 ? 'mid' : 'high' %>" style="width:<%= mt.progress %>%"></div>
@@ -365,6 +371,7 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/mood.js"></script>
   <script src="/js/app.js"></script>
   <script>
     const socket = io();

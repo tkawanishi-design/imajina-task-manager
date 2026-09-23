@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>気分の記録 - <%= target.name %></title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<%
+  const link = (o) => {
+    const p = new URLSearchParams();
+    if (!isSelf) p.set('user', target.id);
+    Object.keys(o).forEach(k => { if (o[k]) p.set(k, o[k]); });
+    return '/mood?' + p.toString();
+  };
+  const dowJa = ['日','月','火','水','木','金','土'];
+  const maxDist = Math.max(1, ...stats.dist.slice(1));
+%>
+  <div class="header">
+    <img src="/img/imajina_logo_K0.png" alt="imajina" class="header-logo">
+    <div class="header-right">
+      <a href="<%= backUrl %>" class="btn-logout">← <%= isSelf ? 'タスクに戻る' : 'チームの気分に戻る' %></a>
+      <div class="header-user">
+        <%- avatarHtml(user, 'sm') %>
+        <span class="user-name"><%= user.name %></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="container mood-page">
+    <% if (user.role === 'manager') { %>
+      <%- include('partials/manager-tabs', { activeTab: 'mood', selectedDate: today }) %>
+    <% } %>
+
+    <div class="mood-head">
+      <div class="mood-head-title">
+        <% if (!isSelf) { %><%- avatarHtml(target, 'sm') %><% } %>
+        <div>
+          <h1><%= isSelf ? '😊 気分の記録' : target.name + 'さんの気分の記録' %></h1>
+          <p class="mood-sub">
+            <% if (isSelf) { %>毎日の気分とひとこと日記。気分は上司（マネージャー／担当リーダー）にも共有されます。
+            <% } else if (user.role === 'manager') { %>本人が「自分だけ」にしたコメントは表示されません。
+            <% } else { %>あなたが担当リーダーだった日の記録だけが表示されます。「自分だけ」のコメントは表示されません。<% } %>
+          </p>
+        </div>
+      </div>
+      <% if (isSelf && user.role !== 'member') { %>
+        <a href="/mood/team" class="btn btn-sm btn-outline">👥 チームの気分</a>
+      <% } %>
+    </div>
+
+    <div class="mood-toolbar">
+      <div class="mood-seg" role="group" aria-label="表示の単位">
+        <a href="<%= link({ view: 'week', date: anchor }) %>" class="<%= view === 'week' ? 'active' : '' %>" <%= view === 'week' ? 'aria-current=page' : '' %>>週</a>
+        <a href="<%= link({ date: anchor }) %>" class="<%= view === 'month' ? 'active' : '' %>" <%= view === 'month' ? 'aria-current=page' : '' %>>月</a>
+      </div>
+      <div class="mood-nav">
+        <a class="date-nav-btn" href="<%= link({ view: view === 'week' ? 'week' : '', date: prevAnchor }) %>" aria-label="<%= view === 'week' ? '前の週' : '前の月' %>">◀</a>
+        <span class="mood-range"><%= rangeLabel %></span>
+        <a class="date-nav-btn" href="<%= link({ view: view === 'week' ? 'week' : '', date: nextAnchor }) %>" aria-label="<%= view === 'week' ? '次の週' : '次の月' %>">▶</a>
+        <% if (!(today >= from && today <= to)) { %>
+          <a class="btn btn-sm btn-outline" href="<%= link({ view: view === 'week' ? 'week' : '' }) %>">今日へ</a>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="mood-layout">
+      <div class="mood-main">
+        <% if (view === 'month') { %>
+        <div class="card mood-cal-card">
+          <div class="mood-cal" role="grid" aria-label="<%= rangeLabel %>の気分カレンダー">
+            <% [1,2,3,4,5,6,0].forEach(w => { %><div class="mood-cal-dow dow-<%= w %>"><%= dowJa[w] %></div><% }) %>
+            <% for (let i = 0; i < lead; i++) { %><div class="mood-cal-cell is-blank" aria-hidden="true"></div><% } %>
+            <% days.forEach(d => { %>
+              <button type="button" class="mood-cal-cell dow-<%= d.dow %><%= d.isToday ? ' is-today' : '' %><%= d.isFuture ? ' is-future' : '' %><%= sel === d.date ? ' is-sel' : '' %>"
+                data-date="<%= d.date %>" <%= d.isFuture ? 'disabled' : '' %>
+                aria-label="<%= d.label %> <%= d.entry ? moodLabel(d.entry.mood) : '未記録' %>">
+                <span class="mood-cal-day"><%= d.day %></span>
+                <span class="mood-cal-face"><%- d.isFuture ? '' : moodFace(d.entry ? d.entry.mood : 0, 30) %></span>
+                <span class="mood-cal-note<%= d.entry && d.entry.comment ? '' : ' is-hidden' %>" aria-hidden="true"></span>
+              </button>
+            <% }) %>
+          </div>
+        </div>
+        <% } else { %>
+        <div class="card mood-week">
+          <% days.forEach(d => { %>
+            <button type="button" class="mood-week-row dow-<%= d.dow %><%= d.isToday ? ' is-today' : '' %><%= sel === d.date ? ' is-sel' : '' %>"
+              data-date="<%= d.date %>" <%= d.isFuture ? 'disabled' : '' %>>
+              <span class="mood-week-date"><%= d.label %></span>
+              <span class="mood-cal-face"><%- moodFace(d.entry ? d.entry.mood : 0, 34) %></span>
+              <span class="mood-week-body">
+                <b class="mood-week-label"><%= d.entry ? moodLabel(d.entry.mood) : (d.isFuture ? '' : '未記録') %></b>
+                <span class="mood-week-comment"><%= d.entry ? d.entry.comment : '' %></span>
+              </span>
+            </button>
+          <% }) %>
+        </div>
+        <% } %>
+
+        <div class="card mood-detail" id="mood-detail" aria-live="polite">
+          <p class="ds-muted">日付を選ぶと、その日の気分とひとことが表示されます<%= isSelf ? '（記録し忘れた日もあとから入れられます）' : '' %></p>
+        </div>
+      </div>
+
+      <div class="mood-side" id="mood-summary">
+        <div class="mood-stats">
+          <div class="mood-stat">
+            <b><%= stats.count %><small>日</small></b>
+            <span>記録した日</span>
+          </div>
+          <div class="mood-stat">
+            <% if (stats.avg) { %><%- moodFace(Math.round(stats.avg), 28) %><b><%= stats.avg.toFixed(1) %></b><% } else { %><b>–</b><% } %>
+            <span>平均（5=最高）</span>
+          </div>
+          <div class="mood-stat">
+            <% if (stats.top) { %><%- moodFace(stats.top, 28) %><b><%= moodLabel(stats.top) %></b><% } else { %><b>–</b><% } %>
+            <span>いちばん多い気分</span>
+          </div>
+        </div>
+
+        <div class="card mood-box">
+          <h3>気分の推移</h3>
+          <% if (chart.points.length) { %>
+          <svg class="mood-chart" viewBox="0 0 <%= chart.W %> <%= chart.H %>" role="img" aria-label="<%= rangeLabel %>の気分の推移">
+            <% chart.yLevels.forEach(l => { %>
+              <line x1="<%= chart.padL %>" x2="<%= chart.W - chart.padR %>" y1="<%= l.y %>" y2="<%= l.y %>" stroke="#eef0f3" stroke-width="1"/>
+              <g transform="translate(4 <%= l.y - 11 %>)"><%- moodFace(l.v, 22) %></g>
+            <% }) %>
+            <% if (chart.points.length > 1) { %><path d="<%= chart.path %>" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><% } %>
+            <% chart.points.forEach(p => { %>
+              <circle cx="<%= p.x %>" cy="<%= p.y %>" r="6" fill="<%= moodColor(p.v) %>" stroke="#fff" stroke-width="2"><title><%= mdLabel(p.date) %> <%= moodLabel(p.v) %></title></circle>
+            <% }) %>
+            <% chart.xLabels.forEach(l => { %>
+              <text x="<%= l.x %>" y="<%= chart.H - 8 %>" text-anchor="middle" font-size="13" fill="#9ca3af"><%= l.text %></text>
+            <% }) %>
+          </svg>
+          <% } else { %>
+            <p class="ds-muted">この期間の記録はまだありません。</p>
+          <% } %>
+        </div>
+
+        <div class="card mood-box">
+          <h3>気分の割合</h3>
+          <div class="mood-dist">
+            <% [5,4,3,2,1].forEach(v => { %>
+              <div class="mood-dist-row">
+                <%- moodFace(v, 22) %>
+                <span class="mood-dist-label"><%= moodLabel(v) %></span>
+                <span class="mood-dist-bar"><span style="width:<%= Math.round(stats.dist[v] * 100 / maxDist) %>%;background:<%= moodColor(v) %>"></span></span>
+                <span class="mood-dist-n"><%= stats.dist[v] %>日</span>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+
+        <% if (view === 'month') { const withComment = entriesDesc.filter(e => e.comment); %>
+        <div class="card mood-box">
+          <h3>ひとこと日記</h3>
+          <% if (withComment.length) { %>
+            <ul class="mood-diary">
+              <% withComment.forEach(e => { %>
+                <li>
+                  <%- moodFace(e.mood, 24) %>
+                  <div><span class="mood-diary-date"><%= mdLabel(e.date) %> ・ <%= moodLabel(e.mood) %></span><p><%= e.comment %></p></div>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <p class="ds-muted">この月のコメントはまだありません。</p>
+          <% } %>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.MOOD_PAGE = <%- JSON.stringify({
+      isSelf, today, sel, byDate,
+      labels: Object.fromEntries(days.map(d => [d.date, d.label]))
+    }).replace(/</g, '\\u003c') %>;
+  </script>
+  <script src="/js/mood.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/mood-page.js"></script>
+</body>
+</html>

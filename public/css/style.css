@@ -1427,3 +1427,155 @@ textarea { resize: vertical; min-height: 80px; }
   .task-item, .task-check, .toast, .quick-chips .chip { transition: none !important; }
   .task-check.pop { animation: none; }
 }
+
+/* ===== 気分日記 ===== */
+.mood-face { display: block; flex-shrink: 0; }
+.mood-chip { display: inline-flex; align-items: center; margin-left: 2px; border-radius: 50%; }
+.mood-chip:hover { transform: scale(1.12); }
+.header-mood-link { white-space: nowrap; }
+
+/* 入力部品（業務終了ポップアップ／記録ページ共通） */
+.ds-mood { padding-top: 16px; }
+.mood-picker { background: #f8fafc; border: 1px solid var(--gray-200); border-radius: 12px; padding: 12px 14px; }
+.mood-q { font-size: 14px; font-weight: 800; color: var(--gray-800); margin-bottom: 8px; text-align: center; }
+.mood-opts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 10px; }
+.mood-opt { display: flex; flex-direction: column; align-items: center; gap: 3px; background: transparent; border: 2px solid transparent; border-radius: 12px; padding: 6px 2px 4px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; color: var(--gray-500); transition: transform .12s, border-color .12s, background .12s; }
+.mood-opt .mood-face { opacity: .55; filter: grayscale(.35); transition: opacity .12s, filter .12s, transform .12s; }
+.mood-opt:hover .mood-face, .mood-opt:focus-visible .mood-face { opacity: 1; filter: none; transform: scale(1.08); }
+.mood-opt.is-selected { background: #fff; border-color: var(--gray-800); color: var(--gray-900); }
+.mood-opt.is-selected .mood-face { opacity: 1; filter: none; transform: scale(1.12); }
+.mood-opt:active { transform: scale(.94); }
+.mood-comment { width: 100%; border: 1px solid var(--gray-300); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 14px; resize: vertical; min-height: 56px; background: #fff; }
+.mood-comment:focus { outline: 2px solid var(--gray-400); outline-offset: 0; border-color: var(--gray-400); }
+.mood-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.mood-private { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray-600); cursor: pointer; }
+.mood-status { margin-left: auto; font-size: 12px; color: var(--gray-500); }
+.mood-status.is-ok { color: var(--success); font-weight: 700; }
+.mood-status.is-error { color: var(--danger); font-weight: 700; }
+.mood-share-note { font-size: 11px; color: var(--gray-400); margin-top: 8px; }
+.mood-shake { animation: mood-shake .35s; }
+@keyframes mood-shake { 0%,100% { transform: none; } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.ds-mood-link { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--gray-600); }
+
+/* 記録ページ */
+.mood-page { max-width: 1100px; }
+.mood-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.mood-head-title { display: flex; align-items: center; gap: 12px; }
+.mood-head h1 { font-size: 20px; font-weight: 800; color: var(--gray-900); }
+.mood-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+.mood-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.mood-seg { display: inline-flex; background: var(--gray-100); border-radius: 10px; padding: 3px; }
+.mood-seg a { padding: 6px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; color: var(--gray-500); text-decoration: none; }
+.mood-seg a.active { background: #fff; color: var(--gray-900); box-shadow: var(--shadow); }
+.mood-nav { display: flex; align-items: center; gap: 8px; }
+.mood-range { font-size: 16px; font-weight: 800; color: var(--gray-900); min-width: 120px; text-align: center; font-variant-numeric: tabular-nums; }
+.mood-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.mood-main, .mood-side { display: grid; gap: 16px; min-width: 0; }
+
+.mood-cal-card { padding: 12px; }
+.mood-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.mood-cal-dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--gray-500); padding: 2px 0 4px; }
+.mood-cal-dow.dow-6, .mood-cal-cell.dow-6 .mood-cal-day { color: #2563eb; }
+.mood-cal-dow.dow-0, .mood-cal-cell.dow-0 .mood-cal-day { color: #dc2626; }
+.mood-cal-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px 8px; border: 2px solid transparent; border-radius: 10px; background: transparent; cursor: pointer; font: inherit; min-height: 62px; }
+.mood-cal-cell:hover:not(:disabled) { background: var(--gray-50); }
+.mood-cal-cell.is-blank { cursor: default; }
+.mood-cal-cell.is-future { cursor: default; opacity: .45; }
+.mood-cal-cell.is-today { background: #fff7ed; }
+.mood-cal-cell.is-sel { border-color: var(--gray-800); }
+.mood-cal-day { font-size: 12px; font-weight: 700; color: var(--gray-600); line-height: 1; }
+.mood-cal-note { position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: var(--gray-500); }
+.mood-cal-note.is-hidden { display: none; }
+
+.mood-week { display: grid; }
+.mood-week-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--gray-100); border-left: 3px solid transparent; background: #fff; text-align: left; font: inherit; cursor: pointer; }
+.mood-week-row:last-child { border-bottom: 0; }
+.mood-week-row:hover:not(:disabled) { background: var(--gray-50); }
+.mood-week-row:disabled { cursor: default; opacity: .5; }
+.mood-week-row.is-today { background: #fff7ed; }
+.mood-week-row.is-sel { border-left-color: var(--gray-800); }
+.mood-week-date { width: 64px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--gray-700); font-variant-numeric: tabular-nums; }
+.mood-week-row.dow-6 .mood-week-date { color: #2563eb; }
+.mood-week-row.dow-0 .mood-week-date { color: #dc2626; }
+.mood-week-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.mood-week-label { font-size: 14px; color: var(--gray-900); }
+.mood-week-comment { font-size: 13px; color: var(--gray-600); overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.mood-detail { padding: 14px 16px; }
+.mood-detail-head { font-size: 14px; font-weight: 800; color: var(--gray-800); margin-bottom: 8px; }
+.mood-today-badge { font-size: 11px; background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: middle; }
+.mood-detail-view { display: flex; align-items: flex-start; gap: 12px; }
+.mood-detail-view b { font-size: 15px; color: var(--gray-900); }
+.mood-detail-comment { font-size: 14px; color: var(--gray-700); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+
+.mood-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mood-stat { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.mood-stat b { font-size: 18px; font-weight: 800; color: var(--gray-900); font-variant-numeric: tabular-nums; }
+.mood-stat b small { font-size: 12px; color: var(--gray-500); margin-left: 1px; }
+.mood-stat span { font-size: 11px; color: var(--gray-500); }
+.mood-box { padding: 14px 16px; }
+.mood-box h3 { font-size: 13px; font-weight: 800; color: var(--gray-700); margin-bottom: 8px; }
+.mood-chart { width: 100%; height: auto; display: block; }
+.mood-dist { display: grid; gap: 6px; }
+.mood-dist-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.mood-dist-label { width: 44px; color: var(--gray-700); }
+.mood-dist-bar { flex: 1; height: 10px; background: var(--gray-100); border-radius: 5px; overflow: hidden; }
+.mood-dist-bar span { display: block; height: 100%; border-radius: 5px; }
+.mood-dist-n { width: 36px; text-align: right; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+.mood-diary { list-style: none; display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
+.mood-diary li { display: flex; gap: 10px; align-items: flex-start; }
+.mood-diary-date { font-size: 11px; color: var(--gray-500); font-weight: 700; }
+.mood-diary p { font-size: 13px; color: var(--gray-800); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* チームの気分（上司用） */
+.mood-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--gray-600); }
+.mood-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.mood-follow { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; }
+.mood-follow h3 { font-size: 14px; font-weight: 800; color: #9a3412; margin-bottom: 4px; }
+.mood-follow ul { margin: 0 0 6px 18px; font-size: 14px; color: var(--gray-800); }
+.mood-follow a { color: #9a3412; font-weight: 700; }
+.mood-follow p { font-size: 12px; color: #9a3412; }
+.mood-cell-detail { position: relative; padding: 12px 40px 12px 16px; margin-bottom: 12px; }
+.mt-detail-close { position: absolute; top: 6px; right: 10px; border: 0; background: none; font-size: 20px; color: var(--gray-400); cursor: pointer; }
+.mt-detail-head { font-size: 12px; color: var(--gray-500); font-weight: 700; }
+.mt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.mt-grid { border-collapse: separate; border-spacing: 0; font-size: 12px; min-width: 100%; }
+.mt-grid th, .mt-grid td { padding: 4px 2px; text-align: center; border-bottom: 1px solid var(--gray-100); }
+.mt-grid thead th { font-weight: 700; color: var(--gray-600); background: #fff; }
+.mt-grid thead th span { display: block; font-size: 12px; }
+.mt-grid thead th small { display: block; font-size: 10px; color: var(--gray-400); font-weight: 600; }
+.mt-grid .dow-0, .mt-grid .dow-6 { background: #fafafa; }
+.mt-grid thead th.dow-0 small { color: #dc2626; }
+.mt-grid thead th.dow-6 small { color: #2563eb; }
+.mt-grid .is-today { background: #fff7ed; }
+.mt-grid .mt-name { position: sticky; left: 0; z-index: 1; background: #fff; text-align: left; padding: 6px 12px 6px 10px; min-width: 132px; box-shadow: 1px 0 0 var(--gray-100); }
+.mt-grid .mt-name a { display: flex; align-items: center; gap: 8px; color: var(--gray-800); text-decoration: none; font-weight: 700; white-space: nowrap; }
+.mt-grid .mt-name a:hover span { text-decoration: underline; }
+.mt-grid tr.is-follow .mt-name { box-shadow: inset 3px 0 0 #f97316, 1px 0 0 var(--gray-100); }
+.mt-cell { position: relative; display: inline-flex; padding: 1px; border: 2px solid transparent; border-radius: 50%; background: none; cursor: pointer; }
+.mt-cell:hover { transform: scale(1.15); }
+.mt-cell.is-sel { border-color: var(--gray-800); }
+.mt-note { position: absolute; right: -1px; bottom: -1px; width: 6px; height: 6px; border-radius: 50%; background: var(--gray-600); border: 1px solid #fff; }
+.mt-empty, .mt-na { color: var(--gray-300); min-width: 26px; }
+.mt-grid .mt-avg { white-space: nowrap; font-weight: 700; color: var(--gray-700); padding: 4px 10px; font-variant-numeric: tabular-nums; }
+.mood-hint { font-size: 12px; color: var(--gray-400); margin-top: 8px; }
+
+@media (max-width: 900px) {
+  .mood-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .mood-opt { font-size: 11px; }
+  .mood-opt .mood-face { width: 34px; height: 34px; }
+  .mood-cal-cell { min-height: 52px; padding: 4px 0 7px; }
+  .mood-cal-face .mood-face { width: 26px; height: 26px; }
+  .mood-seg a { padding: 6px 14px; }
+  .mood-range { min-width: 0; font-size: 15px; }
+  .mood-head h1 { font-size: 18px; }
+  .header-mood-link { padding: 6px 8px; }
+  .mt-grid .mt-name { min-width: 96px; padding-left: 6px; }
+  .mt-grid .mt-name .avatar { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mood-opt, .mood-opt .mood-face { transition: none; }
+  .mood-shake { animation: none; }
+}
