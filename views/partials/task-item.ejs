@@ -1,0 +1,46 @@
+<div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %> <%= task.status === 'in_progress' ? 'in-progress' : '' %> priority-<%= task.priority || 3 %>" data-id="<%= task.id %>">
+  <div class="task-top">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <button type="button" class="task-check <%= task.status === 'completed' ? 'is-done' : '' %>" data-id="<%= task.id %>" title="<%= task.status === 'completed' ? '完了を取り消す' : 'クリックで完了' %>" aria-label="<%= task.status === 'completed' ? '完了を取り消す' : '完了にする' %>" aria-pressed="<%= task.status === 'completed' ? 'true' : 'false' %>"></button>
+    <% if ((task.priority || 3) === 1) { %>
+      <span class="priority-badge p1">必須</span>
+    <% } else if ((task.priority || 3) === 2) { %>
+      <span class="priority-badge p2">重要</span>
+    <% } %>
+    <span class="task-title task-title-editable" onclick="editTitle(this, <%= task.id %>)" title="クリックして編集"><%= i + 1 %>. <%= task.title %></span>
+    <span class="task-category"><%= task.category %></span>
+  </div>
+  <div class="task-meta">
+    <span>見積: <input type="number" class="est-input" value="<%= task.estimated_minutes %>" min="0" step="5" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
+    <span>実績: <input type="number" class="actual-input" value="<%= task.actual_minutes %>" min="0" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
+    <span>
+      <select class="status-select" data-id="<%= task.id %>" style="padding:2px 6px;font-size:12px;border-radius:4px;">
+        <option value="pending" <%= task.status === 'pending' ? 'selected' : '' %>>未着手</option>
+        <option value="in_progress" <%= task.status === 'in_progress' ? 'selected' : '' %>>作業中</option>
+        <option value="completed" <%= task.status === 'completed' ? 'selected' : '' %>>完了</option>
+        <option value="blocked" <%= task.status === 'blocked' ? 'selected' : '' %>>ブロック</option>
+      </select>
+    </span>
+  </div>
+  <div class="task-actions">
+    <div class="task-progress-inline">
+      <input type="range" min="0" max="100" step="5" value="<%= task.progress %>" class="progress-slider" data-id="<%= task.id %>">
+      <span class="progress-val"><%= task.progress %>%</span>
+    </div>
+    <button class="btn btn-sm btn-outline" onclick="toggleComments(<%= task.id %>)">Chat</button>
+    <button class="btn btn-sm btn-danger btn-icon" onclick="deleteTask(<%= task.id %>)" title="削除（数秒間は元に戻せます）">×</button>
+  </div>
+  <% if (task.ai_suggestion) { %>
+    <div class="ai-suggestion"><%= task.ai_suggestion %></div>
+  <% } %>
+  <div class="comments-section" id="comments-<%= task.id %>" style="display:none;">
+    <div class="comments-list" id="comments-list-<%= task.id %>"></div>
+    <div class="comment-input">
+      <input type="text" placeholder="コメント or 質問を入力..." id="comment-text-<%= task.id %>">
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;">
+        <input type="checkbox" id="is-question-<%= task.id %>"> 質問
+      </label>
+      <button class="btn btn-sm btn-primary" onclick="addComment(<%= task.id %>)">送信</button>
+    </div>
+  </div>
+</div>

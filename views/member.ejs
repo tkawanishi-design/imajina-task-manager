@@ -113,21 +113,21 @@
 
     <!-- Stats -->
     <% const completedCount = tasks.filter(t => t.status === 'completed').length; %>
-    <div class="stats-row">
+    <div class="stats-row" id="stats-row" data-phase="<%= phase.phase %>">
       <div class="stat-card">
-        <div class="stat-value"><%= tasks.length %></div>
+        <div class="stat-value" id="stat-count"><%= tasks.length %></div>
         <div class="stat-label">タスク数</div>
       </div>
-      <div class="stat-card <%= overallProgress < 30 && phase.phase >= 3 ? 'danger' : overallProgress < 60 ? 'warning' : 'success' %>">
-        <div class="stat-value"><%= overallProgress %>%</div>
+      <div class="stat-card <%= overallProgress < 30 && phase.phase >= 3 ? 'danger' : overallProgress < 60 ? 'warning' : 'success' %>" id="stat-progress-card">
+        <div class="stat-value" id="stat-progress"><%= overallProgress %>%</div>
         <div class="stat-label">全体進捗</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value"><%= fmtMin(totalEst) %></div>
+        <div class="stat-value" id="stat-est"><%= fmtMin(totalEst) %></div>
         <div class="stat-label">見積合計</div>
       </div>
-      <div class="stat-card <%= totalActual > totalEst ? 'danger' : '' %>">
-        <div class="stat-value"><%= fmtMin(totalActual) %></div>
+      <div class="stat-card <%= totalActual > totalEst ? 'danger' : '' %>" id="stat-actual-card">
+        <div class="stat-value" id="stat-actual"><%= fmtMin(totalActual) %></div>
         <div class="stat-label">実績合計</div>
       </div>
     </div>
@@ -146,17 +146,17 @@
       else if (overallProgress > 0) { motivationMsg = 'スタートダッシュ。この調子で進めよう'; }
       else { motivationMsg = '今日も自分をアップデートしよう'; }
     %>
-    <div class="member-overall-progress">
+    <div class="member-overall-progress" id="overall-progress" data-future="<%= isFuture ? 1 : 0 %>">
       <div class="member-overall-header">
         <span><%= isToday ? '今日の進捗' : todayStr + 'の進捗' %></span>
-        <span style="font-weight:700;color:<%= overallProgress >= 80 ? 'var(--success)' : overallProgress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
-          <%= overallProgress %>% <span style="font-weight:400;font-size:13px;color:var(--gray-500);">（完了 <%= completedCount %>/<%= tasks.length %>）</span>
+        <span id="overall-head" style="font-weight:700;color:<%= overallProgress >= 80 ? 'var(--success)' : overallProgress >= 40 ? 'var(--warning)' : 'var(--danger)' %>;">
+          <span id="overall-pct"><%= overallProgress %></span>% <span style="font-weight:400;font-size:13px;color:var(--gray-500);">（完了 <span id="overall-done"><%= completedCount %></span>/<span id="overall-total"><%= tasks.length %></span>）</span>
         </span>
       </div>
       <div class="progress-bar-wrap" style="height:16px;border-radius:8px;">
-        <div class="progress-bar-fill <%= overallProgress < 30 ? 'low' : overallProgress < 70 ? 'mid' : 'high' %>" style="width:<%= overallProgress %>%;border-radius:8px;"></div>
+        <div id="overall-bar" class="progress-bar-fill <%= overallProgress < 30 ? 'low' : overallProgress < 70 ? 'mid' : 'high' %>" style="width:<%= overallProgress %>%;border-radius:8px;"></div>
       </div>
-      <div class="motivation-message"><%= motivationMsg %></div>
+      <div class="motivation-message" id="motivation-msg"><%= motivationMsg %></div>
     </div>
 
     <!-- Schedule / Tasks タブ切替 -->
@@ -187,54 +187,10 @@
           <div class="task-list-hint">⠿ をつかんでドラッグすると順番を入れ替えられます（この順番でスケジュールに反映されます）</div>
           <div class="card-body" id="task-list">
             <% if (tasks.length === 0) { %>
-              <p style="text-align:center;color:var(--gray-400);padding:40px 0;">タスクを追加してください</p>
+              <p id="task-empty" style="text-align:center;color:var(--gray-400);padding:40px 0;">タスクを追加してください</p>
             <% } %>
             <% tasks.forEach((task, i) => { %>
-              <div class="task-item <%= task.status === 'completed' ? 'completed' : '' %> <%= task.actual_minutes > task.estimated_minutes && task.progress < 100 ? 'delayed' : '' %> <%= task.status === 'in_progress' ? 'in-progress' : '' %> priority-<%= task.priority || 3 %>" data-id="<%= task.id %>">
-                <div class="task-top">
-                  <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
-                  <% if ((task.priority || 3) === 1) { %>
-                    <span class="priority-badge p1">必須</span>
-                  <% } else if ((task.priority || 3) === 2) { %>
-                    <span class="priority-badge p2">重要</span>
-                  <% } %>
-                  <span class="task-title task-title-editable" onclick="editTitle(this, <%= task.id %>)" title="クリックして編集"><%= i + 1 %>. <%= task.title %></span>
-                  <span class="task-category"><%= task.category %></span>
-                </div>
-                <div class="task-meta">
-                  <span>見積: <input type="number" class="est-input" value="<%= task.estimated_minutes %>" min="0" step="5" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
-                  <span>実績: <input type="number" class="actual-input" value="<%= task.actual_minutes %>" min="0" style="width:60px;padding:2px 6px;font-size:13px;border-radius:4px;border:1px solid var(--gray-300);" data-id="<%= task.id %>">分</span>
-                  <span>
-                    <select class="status-select" data-id="<%= task.id %>" style="padding:2px 6px;font-size:12px;border-radius:4px;">
-                      <option value="pending" <%= task.status === 'pending' ? 'selected' : '' %>>未着手</option>
-                      <option value="in_progress" <%= task.status === 'in_progress' ? 'selected' : '' %>>作業中</option>
-                      <option value="completed" <%= task.status === 'completed' ? 'selected' : '' %>>完了</option>
-                      <option value="blocked" <%= task.status === 'blocked' ? 'selected' : '' %>>ブロック</option>
-                    </select>
-                  </span>
-                </div>
-                <div class="task-actions">
-                  <div class="task-progress-inline">
-                    <input type="range" min="0" max="100" step="5" value="<%= task.progress %>" class="progress-slider" data-id="<%= task.id %>">
-                    <span class="progress-val"><%= task.progress %>%</span>
-                  </div>
-                  <button class="btn btn-sm btn-outline" onclick="toggleComments(<%= task.id %>)">Chat</button>
-                  <button class="btn btn-sm btn-danger btn-icon" onclick="deleteTask(<%= task.id %>)">×</button>
-                </div>
-                <% if (task.ai_suggestion) { %>
-                  <div class="ai-suggestion"><%= task.ai_suggestion %></div>
-                <% } %>
-                <div class="comments-section" id="comments-<%= task.id %>" style="display:none;">
-                  <div class="comments-list" id="comments-list-<%= task.id %>"></div>
-                  <div class="comment-input">
-                    <input type="text" placeholder="コメント or 質問を入力..." id="comment-text-<%= task.id %>">
-                    <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;">
-                      <input type="checkbox" id="is-question-<%= task.id %>"> 質問
-                    </label>
-                    <button class="btn btn-sm btn-primary" onclick="addComment(<%= task.id %>)">送信</button>
-                  </div>
-                </div>
-              </div>
+              <%- include('partials/task-item', { task: task, i: i }) %>
             <% }) %>
           </div>
           <div class="task-add-form">
@@ -253,6 +209,7 @@
             </div>
             <button class="btn btn-primary" id="add-task-btn" onclick="addTask()">追加</button>
           </div>
+          <div class="quick-chips" aria-label="見積をワンタップ入力"><span class="quick-chips-label">よく使う見積:</span><button type="button" class="chip" data-min="15">15分</button><button type="button" class="chip" data-min="30">30分</button><button type="button" class="chip" data-min="45">45分</button><button type="button" class="chip" data-min="60">60分</button></div>
           <%- include('partials/task-bulk') %>
         </div>
       </div>
@@ -431,6 +388,7 @@
               titleEl.textContent = titleEl.textContent.replace(/^\d+\./, (idx + 1) + '.');
             }
           });
+          if (typeof renumberTasks === 'function') renumberTasks(); // 削除待ちの行を除いて番号を振り直す
           fetch('/api/tasks/reorder', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

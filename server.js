@@ -648,9 +648,13 @@ app.post('/api/tasks', requireLogin, async (req, res) => {
     const dupes = await db.findDuplicates(title, d, user.id);
     const myTeam = await db.getTeamForUser(user.id, d);
     const task = await db.addTask(user.id, myTeam ? myTeam.id : null, d, title, category, estimated_minutes || 0, ai_suggestion);
-    if (priority) await db.updateTask(task.id, { priority: parseInt(priority) });
+    if (priority) { await db.updateTask(task.id, { priority: parseInt(priority) }); task.priority = parseInt(priority); }
     io.emit('task-updated', { userId: user.id, date: d });
-    res.json({ ok: true, task, duplicates: dupes });
+    // リロードせずに画面へ差し込めるよう、追加したタスク行のHTMLも返す
+    const rowHtml = await new Promise(resolve =>
+      app.render('partials/task-item', { task, i: 0 }, (err, html) => resolve(err ? '' : html))
+    );
+    res.json({ ok: true, task, duplicates: dupes, rowHtml });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
