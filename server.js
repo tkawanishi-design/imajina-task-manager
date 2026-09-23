@@ -303,6 +303,81 @@ function generateSuggestion(title, estimatedMinutes) {
   return suggestions.join('\n');
 }
 
+// 1日の仕事分析（業務終了時のふり返り）。AI/APIを使わない決定論ルールで集計・提案する
+function buildDaySummary(tasks, events) {
+  const rows = (tasks || []).map(t => {
+    const est = t.estimated_minutes || 0, act = t.actual_minutes || 0;
+    const done = t.status === 'completed';
+    // 作業時間：実績があれば実績、なければ「見積×進捗」で推定（完了なら見積どおりとみなす）
+    const time = act > 0 ? act : Math.round(est * (done ? 1 : (t.progress || 0) / 100));
+    return { title: t.title, category: t.category || 'その他', est, act, done, priority: t.priority || 3, time };
+  });
+  const meetingMin = (events || [])
+    .filter(e => (e.kind || 'meeting') !== 'break')
+    .reduce((s, e) => s + Math.max(0, (e.end_min || 0) - (e.start_min || 0)), 0);
+
+  // 作業の内訳（カテゴリ別の割合。最大剰余法で合計100%にそろえる）
+  const catMap = new Map();
+  for (const r of rows) if (r.time > 0) catMap.set(r.category, (catMap.get(r.category) || 0) + r.time);
+  if (meetingMin > 0) catMap.set('会議・予定', (catMap.get('会議・予定') || 0) + meetingMin);
+  const catTotal = [...catMap.values()].reduce((a, b) => a + b, 0);
+  let cats = [...catMap.entries()].map(([name, min]) => {
+    const raw = catTotal ? min * 100 / catTotal : 0;
+    return { name, min, raw, pct: Math.floor(raw) };
+  });
+  let rest = catTotal ? 100 - cats.reduce((s, c) => s + c.pct, 0) : 0;
+  [...cats].sort((a, b) => (b.raw - Math.floor(b.raw)) - (a.raw - Math.floor(a.raw)))
+    .forEach(c => { if (rest > 0) { c.pct++; rest--; } });
+  const categories = cats.sort((a, b) => b.min - a.min).map(({ name, min, pct }) => ({ name, min, pct }));
+
+  // 見積との比較（実績が入力されたタスクのみ）
+  const logged = rows.filter(r => r.act > 0 && r.est > 0);
+  const estLogged = logged.reduce((s, r) => s + r.est, 0);
+  const actLogged = logged.reduce((s, r) => s + r.act, 0);
+  const diff = actLogged - estLogged; // ＋ならオーバー
+  const overTasks = logged.filter(r => r.act - r.est >= 5) // 5分未満の誤差は除外
+    .map(r => ({ title: r.title, est: r.est, act: r.act, over: r.act - r.est }))
+    .sort((a, b) => b.over - a.over).slice(0, 3);
+  const catAcc = {};
+  logged.forEach(r => {
+    const c = catAcc[r.category] || (catAcc[r.category] = { est: 0, act: 0 });
+    c.est += r.est; c.act += r.act;
+  });
+  let worstCat = null;
+  for (const [name, c] of Object.entries(catAcc)) {
+    const ratio = c.act / c.est;
+    if (ratio >= 1.3 && c.act - c.est >= 15 && (!worstCat || ratio > worstCat.ratio)) worstCat = { name, ratio };
+  }
+
+  const completed = rows.filter(r => r.done).length;
+  const incomplete = rows.filter(r => !r.done);
+  const mustIncomplete = incomplete.filter(r => r.priority === 1);
+  const doneNoActual = rows.filter(r => r.done && r.act === 0).length;
+  const pctOf = (a, b) => (b ? Math.round(a * 100 / b) : 0);
+
+  // 明日への改善ポイント（優先度順に最大4つ）
+  const tips = [];
+  const overRatio = estLogged ? diff / estLogged : 0;
+  if (rows.length === 0) tips.push('明日は朝いちばんにタスクを登録して、1日をデザインしましょう');
+  if (rows.length && incomplete.length === 0 && overRatio < 0.2) tips.push('全タスク完了！この調子で、明日も見積どおりに進めていきましょう');
+  if (mustIncomplete.length) tips.push(`必須タスク${mustIncomplete.length}件が未完了です（「${mustIncomplete[0].title}」など）。明日はいちばん最初に着手しましょう。未完了タスクは自動で明日に繰り越されます`);
+  else if (incomplete.length) tips.push(`未完了の${incomplete.length}件は明日に自動で繰り越されます。午前の集中しやすい時間に片付けましょう`);
+  if (overRatio >= 0.2) tips.push(`見積より実績が${pctOf(diff, estLogged)}%多くかかりました。明日は見積を${pctOf(diff, estLogged)}%ほど多めに取ると、時間内に収まりやすくなります`);
+  else if (overRatio <= -0.2) tips.push('見積より早く終わっています。見積を少し短めにすると、もう1タスク入れられそうです');
+  if (worstCat) tips.push(`「${worstCat.name}」は見積の約${worstCat.ratio.toFixed(1)}倍かかる傾向です。この種類の作業は余裕を持って見積もりましょう`);
+  if (catTotal > 0 && meetingMin / catTotal >= 0.4) tips.push(`会議・予定が${pctOf(meetingMin, catTotal)}%を占めました。集中作業の時間を先にスケジュールで確保しておくと進めやすくなります`);
+  if (incomplete.some(r => r.est > 60)) tips.push('60分を超える大きなタスクは、30〜45分単位に分けると進めやすくなります');
+  if (rows.length && (doneNoActual > 0 || logged.length === 0)) tips.push('タスクに実績時間を入れると、見積とのズレまで分析できるようになります');
+
+  return {
+    total: rows.length, completed, incompleteCount: incomplete.length,
+    categories, catTotal, meetingMin,
+    usedEstimate: rows.some(r => r.time > 0 && r.act === 0),
+    estLogged, actLogged, diff, loggedCount: logged.length, overTasks,
+    suggestions: tips.slice(0, 4)
+  };
+}
+
 function autoCategory(title) {
   if (/メール|返信|送付/.test(title)) return 'メール対応';
   if (/資料|提案書|レポート|報告/.test(title)) return '資料作成';
@@ -655,6 +730,17 @@ app.post('/api/tasks', requireLogin, async (req, res) => {
       app.render('partials/task-item', { task, i: 0 }, (err, html) => resolve(err ? '' : html))
     );
     res.json({ ok: true, task, duplicates: dupes, rowHtml });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// 業務終了時のふり返り：自分のその日のタスク＋予定から仕事分析を返す
+app.get('/api/day-summary', requireLogin, async (req, res) => {
+  try {
+    const d = req.query.date || today();
+    const user = req.session.user;
+    const tasks = await db.getTasksByUser(user.id, d);
+    const events = await db.getScheduleEvents(user.id, d);
+    res.json({ ok: true, date: d, name: user.name, ...buildDaySummary(tasks, events) });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 

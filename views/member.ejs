@@ -165,7 +165,10 @@
         <button class="day-tab" data-pane="schedule" onclick="showDayTab('schedule')">📅 スケジュール</button>
         <button class="day-tab" data-pane="tasks" onclick="showDayTab('tasks')">📝 タスク</button>
       </div>
-      <button class="btn btn-sm btn-primary day-reflect-btn" onclick="reflectToSchedule()">📅 タスクをスケジュールに反映</button>
+      <div class="day-tabs-right">
+        <button type="button" class="btn btn-sm day-end-btn" id="day-end-btn" onclick="openDaySummary()" title="今日のふり返り（仕事分析）を表示">🏁 業務終了</button>
+        <button class="btn btn-sm btn-primary day-reflect-btn" onclick="reflectToSchedule()">📅 タスクをスケジュールに反映</button>
+      </div>
     </div>
 
     <div class="day-pane" data-pane="schedule">

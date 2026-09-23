@@ -431,9 +431,10 @@ function deleteTask(id) {
   toast('「' + title + '」を削除しました', { duration: 5000, action: { label: '元に戻す', onClick: () => undoDelete(id) } });
 }
 
+const inflightSaves = new Set(); // 保存中の通信（業務終了の分析前に完了を待つため）
 function updateTask(id, data) {
   markSelfMutation();
-  return fetch('/api/tasks/' + id, {
+  const p = fetch('/api/tasks/' + id, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -443,6 +444,9 @@ function updateTask(id, data) {
   }).catch(() => {
     toast('保存に失敗しました。通信を確認して再読み込みしてください', { type: 'error', duration: 3500 });
   });
+  inflightSaves.add(p);
+  p.finally(() => inflightSaves.delete(p));
+  return p;
 }
 
 function moveCompletedToBottom(taskItem, isCompleted) {
@@ -779,6 +783,89 @@ document.addEventListener('DOMContentLoaded', function() {
   try { tab = sessionStorage.getItem('dayTab') || 'tasks'; } catch (e) {}
   showDayTab(tab);
 });
+
+// ===== 業務終了：今日のふり返り（仕事分析ポップアップ） =====
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+const DS_COLORS = ['#2563eb', '#059669', '#d97706', '#db2777', '#7c3aed', '#0891b2', '#65a30d', '#dc2626', '#4b5563', '#ca8a04', '#0d9488', '#9333ea'];
+
+function openDaySummary() {
+  const btn = document.getElementById('day-end-btn');
+  if (btn) btn.disabled = true;
+  const date = getViewDate();
+  const fetchSummary = () => fetch('/api/day-summary' + (date ? '?date=' + encodeURIComponent(date) : ''))
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(d => { if (!d.ok) throw new Error(); renderDaySummary(d); })
+    .catch(() => toast('ふり返りの取得に失敗しました。もう一度お試しください', { type: 'error', duration: 3000 }))
+    .finally(() => { if (btn) btn.disabled = false; });
+  // 保存中の変更・削除待ちを確定させてから集計する
+  Promise.all(Array.from(inflightSaves))
+    .then(() => (pendingDeletes.size ? flushPendingDeletes() : null))
+    .then(fetchSummary, fetchSummary);
+}
+
+function renderDaySummary(d) {
+  closeDaySummary();
+  const f = fmtMinJS;
+  let accHtml;
+  if (!d.loggedCount) {
+    accHtml = '<p class="ds-muted">実績時間が入力されたタスクがないため、見積との比較はできません。</p>';
+  } else {
+    const badge = Math.abs(d.diff) <= 5 ? '<span class="ds-badge ok">ほぼ見積どおり</span>'
+      : d.diff > 0 ? `<span class="ds-badge over">${f(d.diff)} オーバー</span>`
+      : `<span class="ds-badge ok">${f(-d.diff)} 早く終了</span>`;
+    accHtml = `<div class="ds-acc"><span>見積 <b>${f(d.estLogged)}</b></span><span class="ds-arrow">→</span><span>実績 <b>${f(d.actLogged)}</b></span>${badge}</div>`
+      + `<div class="ds-muted ds-small">実績を入力した${d.loggedCount}件で比較</div>`;
+    if (d.overTasks && d.overTasks.length) {
+      accHtml += '<div class="ds-subhead">オーバーが大きかったタスク</div><ul class="ds-over">'
+        + d.overTasks.map(t => `<li><span class="ds-over-title">${escHtml(t.title)}</span><span class="ds-over-num">${f(t.est)} → ${f(t.act)}（<b>+${f(t.over)}</b>）</span></li>`).join('')
+        + '</ul>';
+    }
+  }
+  let catHtml;
+  if (!d.catTotal) {
+    catHtml = '<p class="ds-muted">記録された作業時間がまだありません。</p>';
+  } else {
+    const color = i => DS_COLORS[i % DS_COLORS.length];
+    const bar = d.categories.map((c, i) => `<span style="width:${c.pct}%;background:${color(i)}" title="${escHtml(c.name)} ${c.pct}%"></span>`).join('');
+    const list = d.categories.map((c, i) => `<li><span class="ds-dot" style="background:${color(i)}"></span><span class="ds-cat-name">${escHtml(c.name)}</span><span class="ds-cat-pct">${c.pct}%</span><span class="ds-cat-min">${f(c.min)}</span></li>`).join('');
+    catHtml = `<div class="ds-stack" aria-hidden="true">${bar}</div><ul class="ds-cats">${list}</ul>`
+      + (d.usedEstimate ? '<div class="ds-muted ds-small">※実績が未入力のタスクは「見積×進捗」で推定しています</div>' : '');
+  }
+  const tips = (d.suggestions || []).map(t => `<li>${escHtml(t)}</li>`).join('');
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay active ds-overlay';
+  overlay.id = 'day-summary-modal';
+  overlay.innerHTML = `<div class="modal ds-modal" role="dialog" aria-modal="true" aria-labelledby="ds-title">
+    <button type="button" class="modal-close ds-close" aria-label="閉じる" onclick="closeDaySummary()">×</button>
+    <div class="ds-hero">
+      <div class="ds-emoji">🍵</div>
+      <h3 id="ds-title">${escHtml(d.name)}さん、今日もお疲れさまでした</h3>
+      <div class="ds-date">${escHtml(d.date)} のふり返り</div>
+    </div>
+    <div class="ds-stats">
+      <div><b>${d.completed}<small>/${d.total}</small></b><span>完了タスク</span></div>
+      <div><b>${f(d.catTotal - d.meetingMin)}</b><span>作業時間</span></div>
+      <div><b>${f(d.meetingMin)}</b><span>会議・予定</span></div>
+    </div>
+    <section class="ds-sec"><h4>⏱ 見積との比較</h4>${accHtml}</section>
+    <section class="ds-sec"><h4>📊 作業の内訳</h4>${catHtml}</section>
+    <section class="ds-sec ds-tips"><h4>💡 明日への改善ポイント</h4><ul>${tips}</ul></section>
+    <div class="ds-foot"><button type="button" class="btn btn-primary" onclick="closeDaySummary()">閉じる</button></div>
+  </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeDaySummary(); });
+  document.body.appendChild(overlay);
+  document.addEventListener('keydown', dsEscHandler);
+  const closeBtn = overlay.querySelector('.ds-foot .btn');
+  if (closeBtn) closeBtn.focus();
+}
+function dsEscHandler(e) { if (e.key === 'Escape') closeDaySummary(); }
+function closeDaySummary() {
+  const m = document.getElementById('day-summary-modal');
+  if (m) m.remove();
+  document.removeEventListener('keydown', dsEscHandler);
+}
 
 // 強制退勤CAUTION表示の切替（マネージャー／担当リーダーがメンバー別に設定）
 function setForceLeave(userId, enabled) {

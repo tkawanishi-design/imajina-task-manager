@@ -1372,6 +1372,53 @@ textarea { resize: vertical; min-height: 80px; }
   outline: 2px solid var(--primary); outline-offset: 2px;
 }
 
+/* ===== 業務終了ボタン＆今日のふり返りポップアップ ===== */
+.day-tabs-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.day-end-btn { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; font-weight: 700; }
+.day-end-btn:hover { background: #ffedd5; }
+.ds-overlay .ds-modal { position: relative; max-width: 560px; width: calc(100% - 32px); max-height: 88vh; padding-bottom: 18px; }
+.ds-close { position: absolute; top: 8px; right: 12px; z-index: 1; }
+.ds-hero { text-align: center; padding: 26px 24px 16px; background: var(--gray-50); border-bottom: 1px solid var(--gray-100); }
+.ds-emoji { font-size: 34px; line-height: 1; margin-bottom: 8px; }
+.ds-hero h3 { font-size: 18px; font-weight: 800; color: var(--gray-900); margin: 0; }
+.ds-date { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+.ds-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px 20px 2px; }
+.ds-stats > div { background: var(--gray-50); border-radius: 10px; padding: 10px 6px; text-align: center; }
+.ds-stats b { display: block; font-size: 20px; font-weight: 800; color: var(--gray-900); font-variant-numeric: tabular-nums; }
+.ds-stats b small { font-size: 13px; color: var(--gray-500); font-weight: 600; }
+.ds-stats span { font-size: 11px; color: var(--gray-500); }
+.ds-sec { padding: 14px 20px 0; }
+.ds-sec h4 { font-size: 13px; font-weight: 800; color: var(--gray-700); margin: 0 0 8px; }
+.ds-acc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--gray-700); }
+.ds-acc b { font-size: 16px; color: var(--gray-900); font-variant-numeric: tabular-nums; }
+.ds-arrow { color: var(--gray-400); }
+.ds-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin-left: auto; }
+.ds-badge.over { background: var(--danger-light); color: var(--danger); }
+.ds-badge.ok { background: var(--success-light); color: var(--success); }
+.ds-subhead { font-size: 12px; font-weight: 700; color: var(--gray-600); margin: 10px 0 4px; }
+.ds-over { list-style: none; margin: 0; padding: 0; }
+.ds-over li { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 5px 0; border-bottom: 1px dashed var(--gray-200); }
+.ds-over-title { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--gray-800); }
+.ds-over-num { white-space: nowrap; color: var(--gray-500); font-variant-numeric: tabular-nums; }
+.ds-over-num b { color: var(--danger); }
+.ds-stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--gray-100); margin-bottom: 10px; }
+.ds-stack span { display: block; height: 100%; }
+.ds-cats { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ds-cats li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ds-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.ds-cat-name { flex: 1; color: var(--gray-800); }
+.ds-cat-pct { font-weight: 800; color: var(--gray-900); min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+.ds-cat-min { color: var(--gray-500); min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+.ds-tips ul { margin: 0; padding-left: 18px; }
+.ds-tips li { font-size: 13px; line-height: 1.65; color: var(--gray-700); margin-bottom: 6px; }
+.ds-muted { color: var(--gray-500); font-size: 13px; margin: 0; }
+.ds-small { font-size: 11px; margin-top: 6px; }
+.ds-foot { padding: 16px 20px 0; text-align: center; }
+@media (max-width: 480px) {
+  .ds-stats b { font-size: 17px; }
+  .ds-badge { margin-left: 0; }
+}
+
 /* 動きを減らす設定の人にはアニメーションを控える */
 @media (prefers-reduced-motion: reduce) {
   .task-item, .task-check, .toast, .quick-chips .chip { transition: none !important; }
